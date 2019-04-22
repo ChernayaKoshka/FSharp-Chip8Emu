@@ -227,7 +227,8 @@ let executeOp (chip:Chip8) (op : Instruction) =
     | LDSTV(Vx)->
          { chip with ST = chip.V.[int Vx] }
     | LDVI(Vx)->
-        failwithf "%A not implemented!" op
+        let newRegisters = chip.ReadRam (int chip.I) 16
+        { chip with V = newRegisters }
     | LDVB(Vx, kk)->
         { chip with V = Array.copySet chip.V (int Vx) kk }
     | LDVDT(Vx)->
@@ -235,7 +236,7 @@ let executeOp (chip:Chip8) (op : Instruction) =
     | LDVK(Vx)->
         failwithf "%A not implemented!" op
     | LDVV(Vx, Vy)->
-        failwithf "%A not implemented!" op
+        { chip with V = Array.copySet chip.V (int Vx) (chip.V.[int Vy]) }
     | OR(Vx, Vy)->
         failwithf "%A not implemented!" op
     | RET->
@@ -260,7 +261,10 @@ let executeOp (chip:Chip8) (op : Instruction) =
         else
             chip
     | SHL(Vx)->
-        failwithf "%A not implemented!" op
+        let carry = if (bytesToBits [|chip.V.[int Vx]|]).[0] then 1uy else 0uy
+        let V' = Array.copySet chip.V (int Vx) (chip.V.[int Vx] <<< 1)
+        let V'' = Array.copySet chip.V 16 carry
+        { chip with V = V'' }
     | SHR(Vx)->
         failwithf "%A not implemented!" op
     | SKNP(Vx)->
@@ -346,4 +350,4 @@ let runFile file =
     ()
 
 printFirstScreen()
-runFile @".\ROMs\Cave.c8"
+runFile @".\ROMs\Particles.c8"
