@@ -7,14 +7,12 @@ open System.Windows.Forms
 type System.IO.BinaryReader with
     member this.ReadBytesBigEndian bytes =
         Array.rev <| this.ReadBytes(bytes)
+
     member this.ReadUInt16BigEndian() =
         BitConverter.ToUInt16(this.ReadBytes(sizeof<uint16>) |> Array.rev, 0)
+
     member this.ReadUInt16BigEndianAsBytes() =
         Array.rev <| this.ReadBytes(sizeof<uint16>)
-
-type DiffResult<'ChangeType> =
-    | Change of 'ChangeType
-    | NoChange
 
 type System.Collections.BitArray with
     member this.ToBigEndian()  =
@@ -24,18 +22,20 @@ type System.Collections.BitArray with
             BitArray(Array.rev bitArrayArray)
         else
             this
+
     member this.DiffArray (oldArr : BitArray) =
         let newArr' = Array.create this.Length false
         let oldArr' = Array.create oldArr.Length false
         this.CopyTo(newArr', 0)
         oldArr.CopyTo(oldArr', 0)
-        let diffed  = Array.map2 (fun n o ->
-            if n && not o then
-                Change true
-            else if not n && o then
-                Change false
-            else
-                NoChange) newArr' oldArr'
+        let diffed =
+            Array.map2 (fun n o ->
+                if n && not o then
+                    Some true
+                else if not n && o then
+                    Some false
+                else
+                    None) newArr' oldArr'
         diffed
 
 [<RequireQualifiedAccess>]

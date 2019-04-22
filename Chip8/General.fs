@@ -111,11 +111,11 @@ let updateScreen (oldScreen : BitArray) (newScreen : BitArray) =
     for y in 0..31 do
         for x in 0..63 do
             match diff.[y * 64 + x] with
-            | Change true ->
+            | Some true ->
                 Console.SetCursorPosition(x, y)
                 Console.Write("█")
                 //█
-            | Change false ->
+            | Some false ->
                 Console.SetCursorPosition(x, y)
                 Console.Write(" ")
                 //
