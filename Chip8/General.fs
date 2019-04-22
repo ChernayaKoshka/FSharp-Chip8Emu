@@ -114,11 +114,9 @@ let updateScreen (oldScreen : BitArray) (newScreen : BitArray) =
             | Some true ->
                 Console.SetCursorPosition(x, y)
                 Console.Write("█")
-                //█
             | Some false ->
                 Console.SetCursorPosition(x, y)
                 Console.Write(" ")
-                //
             | _ -> ()
 
 let drawSprite (screen:BitArray) (spriteData:BitArray) xPos yPos =
