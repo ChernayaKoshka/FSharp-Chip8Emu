@@ -17,6 +17,10 @@ let inline combineByte (n1 : byte) n2 =
     let arr = if BitConverter.IsLittleEndian then [|n2; n1|] else [|n1; n2|]
     BitConverter.ToUInt16(arr, 0)
 
+let inline combineByteArr (arr:Byte[]) =
+    let arr = if BitConverter.IsLittleEndian then [|arr.[1]; arr.[0]|] else [|arr.[0]; arr.[1]|]
+    BitConverter.ToUInt16(arr, 0)
+
 let inline splitWord ( word : uint16 ) =
     let converted = BitConverter.GetBytes(word)
     if BitConverter.IsLittleEndian then
