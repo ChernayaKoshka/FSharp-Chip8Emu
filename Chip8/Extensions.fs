@@ -85,10 +85,6 @@ module External =
                     priorTime <- curTime
                     accumulated
 
-
-
-
-
 [<RequireQualifiedAccess>]
 module Array =
     let copySet array index element =
