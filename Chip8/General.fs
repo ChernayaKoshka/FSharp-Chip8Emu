@@ -49,11 +49,12 @@ type Chip8 =
                 0xF0uy;0x80uy;0xF0uy;0x80uy;0xF0uy; // E
                 0x80uy;0x80uy;0xF0uy;0x80uy;0xF0uy; // F
             |]
+
         static member StackBase = 0xEA0us
+
         static member ProgramBase = 0x200us
-        static member ByteToKey b =
-            let key =
-                match b with
+
+        static member ByteToKey = function
                 | 0x00uy -> Keys.NumPad0
                 | 0x07uy -> Keys.NumPad1
                 | 0x08uy -> Keys.NumPad2
@@ -70,9 +71,36 @@ type Chip8 =
                 | 0x0Duy -> Keys.D
                 | 0x0Euy -> Keys.E
                 | 0x0Fuy -> Keys.F
-            key
+        static member ByteToConsoleKey = function
+                | 0x00uy -> ConsoleKey.NumPad0
+                | 0x07uy -> ConsoleKey.NumPad1
+                | 0x08uy -> ConsoleKey.NumPad2
+                | 0x09uy -> ConsoleKey.NumPad3
+                | 0x04uy -> ConsoleKey.NumPad4
+                | 0x05uy -> ConsoleKey.NumPad5
+                | 0x06uy -> ConsoleKey.NumPad6
+                | 0x01uy -> ConsoleKey.NumPad7
+                | 0x02uy -> ConsoleKey.NumPad8
+                | 0x03uy -> ConsoleKey.NumPad9
+                | 0x0Auy -> ConsoleKey.A
+                | 0x0Buy -> ConsoleKey.B
+                | 0x0Cuy -> ConsoleKey.C
+                | 0x0Duy -> ConsoleKey.D
+                | 0x0Euy -> ConsoleKey.E
+                | 0x0Fuy -> ConsoleKey.F
+
         static member Frequency = 1.00 / 120.00 //60hz, 60 cycles per second
+
         static member IsKeyPressed = Chip8.ByteToKey >> External.IsKeyPressed
+        static member GetKeyPress key =
+            let lookingFor = Chip8.ByteToConsoleKey key
+            let rec getKey() =
+                if Console.ReadKey().Key <> lookingFor then
+                    getKey()
+                else
+                    ()
+            getKey()
+
         /// Creates a new model of Chip8
         static member Create() =
             let ram = Array.append Chip8.FontSprites (Array.create 4016 0uy)
@@ -89,14 +117,14 @@ type Chip8 =
         //copyBlit source sourceIndex target targetIndex count
         member this.LoadProgram (bytes:Byte[]) =
             { this with Ram = Array.copyBlit bytes 0 this.Ram (int Chip8.ProgramBase) bytes.Length }
+
         member this.ReadRam startPos count =
             //printfn "Reading from %d to %d" startPos (startPos+count-1)
-            let read = Array.rev <| this.Ram.[startPos..startPos+count-1]
+            let read = this.Ram.[startPos..startPos+count-1]
             //printfn "Read: %A" read
             read
         member this.WriteRam addr bytes =
-            //printfn "Writing %A to %X" bytes addr
-            Array.copyBlit ((*Array.rev*) bytes) 0 this.Ram addr bytes.Length
+            Array.copyBlit bytes 0 this.Ram addr bytes.Length
 
 let printFirstScreen() =
     Console.Clear()
@@ -106,18 +134,28 @@ let printFirstScreen() =
             printf " "
         printfn ""
 
-let updateScreen (oldScreen : BitArray) (newScreen : BitArray) =
-    let diff = newScreen.DiffArray oldScreen
-    for y in 0..31 do
-        for x in 0..63 do
-            match diff.[y * 64 + x] with
-            | Some true ->
-                Console.SetCursorPosition(x, y)
-                Console.Write("█")
-            | Some false ->
-                Console.SetCursorPosition(x, y)
-                Console.Write(" ")
-            | _ -> ()
+let updateScreen (oldScreen : BitArray) (newScreen : BitArray) debugMode =
+    if not debugMode then
+        let diff = newScreen.DiffArray oldScreen
+        for y in 0..31 do
+            for x in 0..63 do
+                match diff.[y * 64 + x] with
+                | Some true ->
+                    Console.SetCursorPosition(x, y)
+                    Console.Write("█")
+                | Some false ->
+                    Console.SetCursorPosition(x, y)
+                    Console.Write(" ")
+                | _ -> ()
+    else
+        for y in 0..31 do
+            for x in 0..63 do
+                match newScreen.[y * 64 + x] with
+                | true ->
+                    Console.Write("█")
+                | false ->
+                    Console.Write(" ")
+            Console.WriteLine()
 
 let drawSprite (screen:BitArray) (spriteData:BitArray) xPos yPos =
     let newScreen = BitArray(screen)
