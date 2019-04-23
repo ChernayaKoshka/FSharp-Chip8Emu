@@ -1,10 +1,11 @@
+module Decoder
+
 #if INTERACTIVE
 #load "Extensions.fs"
 #load "BitOps.fs"
 #load "General.fs"
-#else
-module Decoder
 #endif
+
 
 open Extensions
 open BitOps
@@ -26,7 +27,7 @@ type Instruction =
     | JPA   of MemoryAddress                         // addr
     | JP0A  of MemoryAddress                         // V0, addr
     | LDIV  of VRegister                             // [I], Vx
-    | LDBV  of VRegister                             // B, Vx
+    | LDBCDV  of VRegister                             // B, Vx
     | LDDTV of VRegister                             // DT, Vx
     | LDFV  of VRegister                             // F, Vx
     | LDIA  of MemoryAddress                         // I, addr
@@ -161,7 +162,7 @@ let decodeOp (s : uint16) : Instruction =
         | 0x29uy ->
             LDFV(vx)
         | 0x33uy ->
-            LDBV(vx)
+            LDBCDV(vx)
         | 0x55uy ->
             LDIV(vx)
         | 0x65uy ->
@@ -169,17 +170,24 @@ let decodeOp (s : uint16) : Instruction =
         | _ -> BADOP(s)
     | _ -> BADOP(s)
 
+let fs = new StreamWriter(File.OpenWrite("out.txt"))
+let write (str:string) =
+    fs.WriteLine(str)
+
+let inline dprintf fmt = sprintf fmt //Printf.kprintf write fmt
+
 let executeOp (chip:Chip8) (op : Instruction) =
     //Printf.kprintf write "V: %A" chip.V
     //Printf.kprintf write "I: %A, PC: %A, SP: %A" chip.I chip.PC chip.SP
     //Printf.kprintf write "Next: %A" op
+    dprintf "% 6d\t%A\t%A" (chip.PC-2us) op chip.V
     match op with
     | ADDIV(Vx)->
         { chip with I = chip.I + to16 chip.V.[int Vx] }
     | ADDVB(Vx, kk)->
         { chip with V = Array.copySet chip.V (int Vx) ( kk + chip.V.[int Vx]) }
     | ADDVV(Vx, Vy)->
-        let addResult = uint16 chip.V.[int Vx] + uint16 chip.V.[int Vy]
+        let addResult = to16 chip.V.[int Vx] + to16 chip.V.[int Vy]
         let newRegisters =
             if addResult > 0xFFus then
                 Array.copySet chip.V (0x0F) 1uy
@@ -188,10 +196,10 @@ let executeOp (chip:Chip8) (op : Instruction) =
         let newRegisters = Array.copySet newRegisters (int Vx) (to8 addResult)
         { chip with V = newRegisters }
     | AND(Vx, Vy)->
-        { chip with V = Array.copySet chip.V (int Vx) (Vx &&& Vy) }
+        { chip with V = Array.copySet chip.V (int Vx) (chip.V.[int Vx] &&& chip.V.[int Vy]) }
     | CALL(addr)->
-        let newSP = chip.SP + 0x01uy
-        { chip with PC = addr; SP = newSP; Ram = chip.WriteRam (int newSP * 0x10 + int Chip8.StackBase) (splitWord chip.PC) }
+        let newSP = chip.SP + 1uy
+        { chip with PC = addr; SP = newSP; Ram = chip.WriteRam (int newSP * 2 + int Chip8.StackBase) (splitWord chip.PC) }
     | CLS->
         { chip with Screen = BitArray(64*32) }
     | DRW(Vx, Vy, n)->
@@ -209,14 +217,16 @@ let executeOp (chip:Chip8) (op : Instruction) =
         else
             { chip with Screen = newScreen; V = Array.copySet chip.V 0xF 0x0uy }
     | JPA(addr)->
-        if chip.PC = addr then
+        if chip.PC - 2us = addr then
             failwith "Infinite loop detected!"
         { chip with PC = addr }
     | JP0A(addr)->
-        failwithf "%A not implemented!" op
+        { chip with PC = addr + (to16 chip.V.[0]) }
     | LDIV(Vx)->
-        failwithf "%A not implemented!" op
-    | LDBV(Vx)->
+        //printfn "Writing to address %d with bytes %A (%d)." (int chip.I) (chip.V.[0..int Vx]) Vx
+        let written = chip.WriteRam (int chip.I) chip.V.[0..int Vx]
+        { chip with Ram = written }
+    | LDBCDV(Vx)->
         failwithf "%A not implemented!" op
     | LDDTV(Vx)->
         { chip with DT = chip.V.[int Vx] }
@@ -227,7 +237,10 @@ let executeOp (chip:Chip8) (op : Instruction) =
     | LDSTV(Vx)->
          { chip with ST = chip.V.[int Vx] }
     | LDVI(Vx)->
-        let newRegisters = chip.ReadRam (int chip.I) 16
+        let numRead = int Vx + 1
+        let read = chip.ReadRam (int chip.I) numRead
+        let newRegisters = Array.copyBlit read 0 chip.V 0 numRead
+        dprintf "Read %d registers!" numRead
         { chip with V = newRegisters }
     | LDVB(Vx, kk)->
         { chip with V = Array.copySet chip.V (int Vx) kk }
@@ -241,9 +254,9 @@ let executeOp (chip:Chip8) (op : Instruction) =
         failwithf "%A not implemented!" op
     | RET->
         //printfn "RET!"
-        let stackAddr = Chip8.StackBase + Convert.ToUInt16(chip.SP * 0x10uy)
+        let stackAddr = int chip.SP * 2 + int Chip8.StackBase
         //printfn "stackAddr: %A" stackAddr
-        let priorAddr = BitConverter.ToUInt16(chip.ReadRam (int stackAddr) 2, 0)
+        let priorAddr = combineByteArr <| chip.ReadRam stackAddr 2
         { chip with PC = priorAddr; SP = chip.SP - 1uy }
     | RND(Vx, kk)->
         let rndArr = [|0uy|]
@@ -262,11 +275,14 @@ let executeOp (chip:Chip8) (op : Instruction) =
             chip
     | SHL(Vx)->
         let carry = if (bytesToBits [|chip.V.[int Vx]|]).[0] then 1uy else 0uy
-        let V' = Array.copySet chip.V (int Vx) (chip.V.[int Vx] <<< 1)
-        let V'' = Array.copySet chip.V 16 carry
-        { chip with V = V'' }
+        let v' = Array.copySet chip.V (int Vx) (chip.V.[int Vx] <<< 1)
+        let v'' = Array.copySet v' 15 carry
+        { chip with V = v'' }
     | SHR(Vx)->
-        failwithf "%A not implemented!" op
+        let carry = if (bytesToBits [|chip.V.[int Vx]|]).[7] then 1uy else 0uy
+        let v' = Array.copySet chip.V (int Vx) (chip.V.[int Vx] >>> 1)
+        let v'' = Array.copySet v' 15 carry
+        { chip with V = v'' }
     | SKNP(Vx)->
         if not <| Chip8.IsKeyPressed chip.V.[int Vx] then
             { chip with PC = chip.PC + 2us }
@@ -288,30 +304,39 @@ let executeOp (chip:Chip8) (op : Instruction) =
         else
             chip
     | SUB(Vx, Vy)->
-        failwithf "%A not implemented!" op
+        let vXVal = chip.V.[int Vx]
+        let vYVal = chip.V.[int Vy]
+        let carry = if vXVal > vYVal then 1uy else 0uy
+        let res = vXVal - vYVal
+        let v' =  Array.copySet chip.V (int Vx) res
+        let v'' =  Array.copySet v' 15 carry
+        dprintf "!!%A!!" v''
+        { chip with V = v'' }
     | SUBN(Vx, Vy)->
         failwithf "%A not implemented!" op
     | SYS(addr)->
         failwithf "%A not implemented!" op
     | XOR(Vx, Vy)->
-        failwithf "%A not implemented!" op
+        let vXVal = chip.V.[int Vx]
+        let vYVal = chip.V.[int Vy]
+        let res = vXVal ^^^ vYVal
+        { chip with V = Array.copySet chip.V (int Vx) res }
     | BADOP(addr)->
         failwithf "%A not implemented!" op
 
 let readFile file =
     use fs = File.OpenRead(file)
     use reader = new BinaryReader(fs)
-    [| for _ in 0..(int <| ((fs.Length - 1L) / 2L)) do
-        yield reader.ReadUInt16BigEndian() |]
-
-let readFileBytes file =
-    use fs = File.OpenRead(file)
-    use reader = new BinaryReader(fs)
     [| for _ in 0..(int <| (fs.Length - 1L)) do
         yield reader.ReadByte() |]
 
-let decode words =
-    Array.map decodeOp words
+let decode (bytes : byte[]) =
+    bytes
+    |> Array.chunkBySize 2
+    |> Array.filter (fun arr -> arr.Length = 2)
+    |> Array.map (fun bytes ->
+        combineByte bytes.[0] bytes.[1]
+        |> decodeOp)
 
 let decodeFile = readFile >> decode
 
@@ -321,8 +346,7 @@ let dumpFile file =
     Array.iteri (fun i op -> writer.WriteLine(sprintf "% 6d\t%A" (i*2) op)) decoded
 
 let runFile file =
-    Console.Clear()
-    let bytes = readFileBytes file
+    let bytes = readFile file
     let chip = Chip8.Create().LoadProgram bytes
     let timer = External.Time.HighResTimer()
     let rec next (chip : Chip8) timeAccumulated =
@@ -332,7 +356,7 @@ let runFile file =
 
         if accumulated >= Chip8.Frequency then
             let readNext  = chip.ReadRam (int chip.PC) 2
-            let nextInstr = decodeOp <| BitConverter.ToUInt16(readNext, 0)
+            let nextInstr = decodeOp <| combineByteArr readNext
             let nextState =
                 executeOp
                     {
@@ -341,13 +365,29 @@ let runFile file =
                             DT = if chip.DT <> 0uy then chip.DT - 1uy else 0uy;
                             ST = if chip.ST <> 0uy then chip.ST - 1uy else 0uy;
                     } nextInstr
+            //printfn "Executed %A with a result of:" nextInstr
+            //printfn "V: %A" nextState.V
+            //printfn "PC: %d, SP: %d, I: %d" nextState.PC nextState.SP nextState.I
+            //let peekStart = int nextState.I //if int nextState.I - 4 < 0 then 0 else int nextState.I - 4
+            //printfn "Ram [%d-%d]: %A" peekStart (peekStart + 9)  (nextState.ReadRam peekStart 10)
+            //printfn "Execute next?"
+            //Console.ReadLine() |> ignore
             if nextState.Screen <> chip.Screen then
-                updateScreen chip.Screen nextState.Screen
+                updateScreen chip.Screen nextState.Screen false
             next nextState (accumulated - Chip8.Frequency)
         else
             next chip accumulated
     next chip 0.0
     ()
 
-printFirstScreen()
-runFile @".\ROMs\Particles.c8"
+let test() =
+    printFirstScreen()
+    try
+        runFile @".\ROMs\Sirpinski.c8"
+        //dumpFile @".\ROMs\Sirpinski.c8"
+    with
+    | ex ->
+        printfn "%A" ex
+        fs.Flush()
+        fs.Close()
+//dumpFile @".\ROMs\Particles.c8"
