@@ -134,7 +134,7 @@ let printFirstScreen() =
 
 let updateScreen (oldScreen : BitArray) (newScreen : BitArray) debugMode =
     if not debugMode then
-        let diff = newScreen.DiffArray oldScreen
+        let diff = oldScreen.Diff oldScreen
         for y in 0..31 do
             for x in 0..63 do
                 match diff.[y * 64 + x] with
