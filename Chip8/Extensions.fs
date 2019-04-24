@@ -19,7 +19,11 @@ type System.Collections.BitArray with
         if BitConverter.IsLittleEndian then
             let bitArrayArray = Array.create this.Length false
             this.CopyTo(bitArrayArray, 0)
-            BitArray(Array.rev bitArrayArray)
+            let bigEndian =
+                bitArrayArray
+                |> Array.chunkBySize 8
+                |> Array.collect Array.rev
+            BitArray(bigEndian)
         else
             this
 
@@ -96,3 +100,22 @@ module Array =
         let newArr = Array.copy target
         Array.blit source sourceIndex newArr targetIndex count
         newArr
+
+module Printf =
+    let cprintf c fmt =
+        Printf.kprintf (fun s ->
+            let old = System.Console.ForegroundColor
+            try
+              System.Console.ForegroundColor <- c;
+              System.Console.Write s
+            finally
+              System.Console.ForegroundColor <- old)
+            fmt
+
+    let cprintfDiff a b fmt =
+        let color =
+            if a <> b then
+                ConsoleColor.Red
+            else
+                Console.ForegroundColor
+        cprintf color fmt

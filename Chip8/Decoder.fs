@@ -1,13 +1,14 @@
 module Decoder
 
-#if INTERACTIVE
-#load "Extensions.fs"
-#load "BitOps.fs"
-#load "General.fs"
-#endif
+//#if INTERACTIVE
+//#load "Extensions.fs"
+//#load "BitOps.fs"
+//#load "General.fs"
+//#endif
 
 
 open Extensions
+open Extensions.Printf
 open BitOps
 open General
 
@@ -58,7 +59,7 @@ let decodeOp (s : uint16) : Instruction =
     let instruction,d1,d2,d3 = splitNibbles s
     //printfn "Processing: %X" s
     match instruction with
-    | 0x00uy ->
+    | 0x0uy ->
         if s = 0x00E0us then
             CLS
         elif s = 0x00EEus then
@@ -66,33 +67,33 @@ let decodeOp (s : uint16) : Instruction =
         else
             let addr = clearUpperNibble s
             SYS addr
-    | 0x01uy ->
+    | 0x1uy ->
         let addr = clearUpperNibble s
         JPA addr
-    | 0x02uy ->
+    | 0x2uy ->
         let addr = clearUpperNibble s
         CALL addr
-    | 0x03uy ->
+    | 0x3uy ->
         let vx = d1
         let kk = combineNibble d2 d3
         SEVB(vx, kk)
-    | 0x04uy ->
+    | 0x4uy ->
         let vx = d1
         let kk = combineNibble d2 d3
         SNEVB(vx, kk)
-    | 0x05uy ->
+    | 0x5uy ->
         let vx = d1
         let vy = d2
         SEVV(vx, vy)
-    | 0x06uy ->
+    | 0x6uy ->
         let vx = d1
         let kk = combineNibble d2 d3
         LDVB(vx, kk)
-    | 0x07uy ->
+    | 0x7uy ->
         let vx = d1
         let kk = combineNibble d2 d3
         ADDVB(vx, kk)
-    | 0x08uy ->
+    | 0x8uy ->
         let vx = d1
         let vy = d2
         let  n = d3
@@ -116,29 +117,29 @@ let decodeOp (s : uint16) : Instruction =
         | 0x0Euy ->
             SHL(vx)
         | _ -> BADOP(s)
-    | 0x09uy ->
+    | 0x9uy ->
         if d3 = 0x00uy then
             let vx = d1
             let vy = d2
             SNEVV(vx, vy)
         else
             BADOP(s)
-    | 0x0Auy ->
+    | 0xAuy ->
         let addr = clearUpperNibble s
         LDIA(addr)
-    | 0x0Buy ->
+    | 0xBuy ->
         let addr = clearUpperNibble s
         JP0A(addr)
-    | 0x0Cuy ->
+    | 0xCuy ->
         let vx = d1
         let kk = combineNibble d2 d3
         RND(vx, kk)
-    | 0x0Duy ->
+    | 0xDuy ->
         let vx = d1
         let vy = d2
         let  n = d3
         DRW(vx, vy, n)
-    | 0x0Euy ->
+    | 0xEuy ->
         let vx = d1
         match combineNibble d2 d3 with
         | 0x9Euy ->
@@ -146,7 +147,7 @@ let decodeOp (s : uint16) : Instruction =
         | 0xA1uy ->
             SKNP(vx)
         | _ -> BADOP(s)
-    | 0x0Fuy ->
+    | 0xFuy ->
         let vx = d1
         match combineNibble d2 d3 with
         | 0x07uy ->
@@ -170,11 +171,13 @@ let decodeOp (s : uint16) : Instruction =
         | _ -> BADOP(s)
     | _ -> BADOP(s)
 
-let fs = new StreamWriter(File.OpenWrite("out.txt"))
-let write (str:string) =
-    fs.WriteLine(str)
+//let fs = new StreamWriter(File.OpenWrite("out.txt"))
+//let write (str:string) =s
+//    fs.WriteLine(str)
 
 let inline dprintf fmt = sprintf fmt //Printf.kprintf write fmt
+
+let rand = Random()
 
 let executeOp (chip:Chip8) (op : Instruction) =
     //Printf.kprintf write "V: %A" chip.V
@@ -206,9 +209,7 @@ let executeOp (chip:Chip8) (op : Instruction) =
         let xPos = Convert.ToUInt16(chip.V.[int Vx])
         let yPos = Convert.ToUInt16(chip.V.[int Vy])
 
-        let spriteData =
-            chip.ReadRam (int chip.I) (int n)
-            |> bytesToBits
+        let spriteData = bytesToBits (chip.ReadRam (int chip.I) (int n))
 
         let newScreen,collision = drawSprite chip.Screen spriteData xPos yPos
 
@@ -239,6 +240,7 @@ let executeOp (chip:Chip8) (op : Instruction) =
     | LDVI(Vx)->
         let numRead = int Vx + 1
         let read = chip.ReadRam (int chip.I) numRead
+        //cprintf ConsoleColor.Red "RAM[%d-%d]: %A" (int chip.I) (int chip.I + numRead - 1) read
         let newRegisters = Array.copyBlit read 0 chip.V 0 numRead
         dprintf "Read %d registers!" numRead
         { chip with V = newRegisters }
@@ -260,7 +262,7 @@ let executeOp (chip:Chip8) (op : Instruction) =
         { chip with PC = priorAddr; SP = chip.SP - 1uy }
     | RND(Vx, kk)->
         let rndArr = [|0uy|]
-        Random().NextBytes(rndArr)
+        rand.NextBytes(rndArr)
         let rnd = rndArr.[0] &&& kk
         { chip with V = Array.copySet chip.V (int Vx) rnd }
     | SEVB(Vx, kk)->
@@ -345,7 +347,9 @@ let dumpFile file =
     use writer = new StreamWriter(File.OpenWrite("dump.txt"))
     Array.iteri (fun i op -> writer.WriteLine(sprintf "% 6d\t%A" (i*2) op)) decoded
 
-let runFile file =
+let mutable breakpointSet = false
+let mutable breakpoint = 0x200us
+let runFile debug file =
     let bytes = readFile file
     let chip = Chip8.Create().LoadProgram bytes
     let timer = External.Time.HighResTimer()
@@ -356,7 +360,10 @@ let runFile file =
 
         if accumulated >= Chip8.Frequency then
             let readNext  = chip.ReadRam (int chip.PC) 2
-            let nextInstr = decodeOp <| combineByteArr readNext
+            let nextInstr =
+                readNext
+                |> combineByteArr
+                |> decodeOp
             let nextState =
                 executeOp
                     {
@@ -365,15 +372,33 @@ let runFile file =
                             DT = if chip.DT <> 0uy then chip.DT - 1uy else 0uy;
                             ST = if chip.ST <> 0uy then chip.ST - 1uy else 0uy;
                     } nextInstr
-            //printfn "Executed %A with a result of:" nextInstr
-            //printfn "V: %A" nextState.V
-            //printfn "PC: %d, SP: %d, I: %d" nextState.PC nextState.SP nextState.I
-            //let peekStart = int nextState.I //if int nextState.I - 4 < 0 then 0 else int nextState.I - 4
-            //printfn "Ram [%d-%d]: %A" peekStart (peekStart + 9)  (nextState.ReadRam peekStart 10)
-            //printfn "Execute next?"
-            //Console.ReadLine() |> ignore
+            if debug then
+                if not breakpointSet || (breakpointSet && chip.PC = breakpoint) then
+                    breakpointSet <- false
+                    printfn "Executed %A with a result of:" nextInstr
+                    printf "V: "
+
+                    Array.iteri2 (fun i v v' ->
+                        cprintfDiff v v' "%d : %d | " i v') chip.V nextState.V
+                    printfn ""
+
+                    printf "PC: %d, " nextState.PC
+                    cprintfDiff chip.SP nextState.SP "SP: %d, " nextState.SP
+                    cprintfDiff chip.I nextState.I "I: %d" nextState.I
+                    printfn ""
+
+                    printfn "Next3: %A" (decode (nextState.ReadRam (int nextState.PC) 6))
+                    printfn "Ram [%d-%d]: %A" (int nextState.I) ((int nextState.I) + 9) (nextState.ReadRam (int nextState.I) 10)
+                    printfn "Execute next until?"
+                    let input = Console.ReadLine()
+                    match UInt16.TryParse(input) with
+                    | (true, num) ->
+                        breakpointSet <- true
+                        breakpoint <- num
+                    | _ -> ()
+
             if nextState.Screen <> chip.Screen then
-                updateScreen chip.Screen nextState.Screen false
+                updateScreen chip.Screen nextState.Screen debug
             next nextState (accumulated - Chip8.Frequency)
         else
             next chip accumulated
@@ -383,11 +408,9 @@ let runFile file =
 let test() =
     printFirstScreen()
     try
-        runFile @".\ROMs\Sirpinski.c8"
+        runFile true @".\ROMs\Particles.c8"
         //dumpFile @".\ROMs\Sirpinski.c8"
     with
     | ex ->
         printfn "%A" ex
-        fs.Flush()
-        fs.Close()
-//dumpFile @".\ROMs\Particles.c8"
+    //dumpFile @".\ROMs\Particles.c8"
