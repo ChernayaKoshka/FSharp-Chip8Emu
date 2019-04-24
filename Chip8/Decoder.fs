@@ -1,10 +1,10 @@
 module Decoder
 
-//#if INTERACTIVE
-//#load "Extensions.fs"
-//#load "BitOps.fs"
-//#load "General.fs"
-//#endif
+#if INTERACTIVE
+#load "Extensions.fs"
+#load "BitOps.fs"
+#load "General.fs"
+#endif
 
 
 open Extensions
@@ -186,17 +186,17 @@ let executeOp (chip:Chip8) (op : Instruction) =
     dprintf "% 6d\t%A\t%A" (chip.PC-2us) op chip.V
     match op with
     | ADDIV(Vx)->
-        { chip with I = chip.I + to16 chip.V.[int Vx] }
+        { chip with I = chip.I + uint16 chip.V.[int Vx] }
     | ADDVB(Vx, kk)->
         { chip with V = Array.copySet chip.V (int Vx) ( kk + chip.V.[int Vx]) }
     | ADDVV(Vx, Vy)->
-        let addResult = to16 chip.V.[int Vx] + to16 chip.V.[int Vy]
+        let addResult = uint16 chip.V.[int Vx] + uint16 chip.V.[int Vy]
         let newRegisters =
             if addResult > 0xFFus then
                 Array.copySet chip.V (0x0F) 1uy
             else
                 chip.V
-        let newRegisters = Array.copySet newRegisters (int Vx) (to8 addResult)
+        let newRegisters = Array.copySet newRegisters (int Vx) (byte addResult)
         { chip with V = newRegisters }
     | AND(Vx, Vy)->
         { chip with V = Array.copySet chip.V (int Vx) (chip.V.[int Vx] &&& chip.V.[int Vy]) }
@@ -206,10 +206,10 @@ let executeOp (chip:Chip8) (op : Instruction) =
     | CLS->
         { chip with Screen = BitArray(64*32) }
     | DRW(Vx, Vy, n)->
-        let xPos = Convert.ToUInt16(chip.V.[int Vx])
-        let yPos = Convert.ToUInt16(chip.V.[int Vy])
+        let xPos = uint16 chip.V.[int Vx]
+        let yPos = uint16 chip.V.[int Vy]
 
-        let spriteData = bytesToBits (chip.ReadRam (int chip.I) (int n))
+        let spriteData = BitArray (chip.ReadRam (int chip.I) (int n))
 
         let newScreen,collision = drawSprite chip.Screen spriteData xPos yPos
 
@@ -218,11 +218,9 @@ let executeOp (chip:Chip8) (op : Instruction) =
         else
             { chip with Screen = newScreen; V = Array.copySet chip.V 0xF 0x0uy }
     | JPA(addr)->
-        if chip.PC - 2us = addr then
-            failwith "Infinite loop detected!"
         { chip with PC = addr }
     | JP0A(addr)->
-        { chip with PC = addr + (to16 chip.V.[0]) }
+        { chip with PC = addr + (uint16 chip.V.[0]) }
     | LDIV(Vx)->
         //printfn "Writing to address %d with bytes %A (%d)." (int chip.I) (chip.V.[0..int Vx]) Vx
         let written = chip.WriteRam (int chip.I) chip.V.[0..int Vx]
@@ -408,7 +406,7 @@ let runFile debug file =
 let test() =
     printFirstScreen()
     try
-        runFile true @".\ROMs\Particles.c8"
+        runFile false @".\ROMs\Chip8 Picture.c8"
         //dumpFile @".\ROMs\Sirpinski.c8"
     with
     | ex ->
