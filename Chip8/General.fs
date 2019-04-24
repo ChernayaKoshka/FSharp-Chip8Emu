@@ -114,7 +114,7 @@ type Chip8 =
                 PC     = Chip8.ProgramBase
                 SP     = 0x0uy
             }
-        //copyBlit source sourceIndex target targetIndex count
+
         member this.LoadProgram (bytes:Byte[]) =
             { this with Ram = Array.copyBlit bytes 0 this.Ram (int Chip8.ProgramBase) bytes.Length }
 
@@ -134,7 +134,7 @@ let printFirstScreen() =
 
 let updateScreen (oldScreen : BitArray) (newScreen : BitArray) debugMode =
     if not debugMode then
-        let diff = oldScreen.Diff oldScreen
+        let diff = newScreen.Diff oldScreen
         for y in 0..31 do
             for x in 0..63 do
                 match diff.[y * 64 + x] with
