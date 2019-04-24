@@ -38,14 +38,6 @@ let splitNibbles (s : uint16) =
     let n4 = to8 (s &&& 0x000Fus       )
     (n1, n2, n3, n4)
 
-let fromNibbles n1 n2 n3 n4 =
-    let mutable result = 0x0000us
-    result <- (result ||| (to16 n1)) <<< 4
-    result <- (result ||| (to16 n2)) <<< 4
-    result <- (result ||| (to16 n3)) <<< 4
-    result <- (result ||| (to16 n4)) <<< 0
-    result
-
 let bytesToBits (bytes:byte[]) =
     if BitConverter.IsLittleEndian then
         BitArray(bytes).ToBigEndian()
