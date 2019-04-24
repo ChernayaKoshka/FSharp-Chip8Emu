@@ -15,19 +15,16 @@ type System.IO.BinaryReader with
         Array.rev <| this.ReadBytes(sizeof<uint16>)
 
 type System.Collections.BitArray with
-    member this.ToBigEndian()  =
-        if BitConverter.IsLittleEndian then
-            let bitArrayArray = Array.create this.Length false
-            this.CopyTo(bitArrayArray, 0)
-            let bigEndian =
-                bitArrayArray
-                |> Array.chunkBySize 8
-                |> Array.collect Array.rev
-            BitArray(bigEndian)
-        else
-            this
+    member this.Rev()  =
+        let bitArray = Array.create this.Length false
+        this.CopyTo(bitArray, 0)
+        let reversed =
+            bitArray
+            |> Array.chunkBySize 8
+            |> Array.collect Array.rev
+        BitArray(reversed)
 
-    member this.DiffArray (oldArr : BitArray) =
+    member this.Diff (oldArr : BitArray) =
         let newArr' = Array.create this.Length false
         let oldArr' = Array.create oldArr.Length false
         this.CopyTo(newArr', 0)
