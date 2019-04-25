@@ -31,8 +31,4 @@ let splitNibbles (s : uint16) =
     let n4 = byte (s &&& 0x000Fus       )
     (n1, n2, n3, n4)
 
-let bytesToBits (bytes:byte[]) =
-    if BitConverter.IsLittleEndian then
-        BitArray(bytes).Rev()
-    else
-        BitArray(bytes)
+let bytesToBits (bytes:byte[]) = BitArray(bytes).Rev()
