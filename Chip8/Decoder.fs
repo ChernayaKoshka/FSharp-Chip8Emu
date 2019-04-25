@@ -194,7 +194,7 @@ let executeOp (chip:Chip8) (op : Instruction) =
             if addResult > 0xFFus then
                 Array.copySet chip.V (0x0F) 1uy
             else
-                chip.V
+                Array.copySet chip.V (0x0F) 0uy
         let newRegisters = Array.copySet newRegisters (int Vx) (byte addResult)
         { chip with V = newRegisters }
     | AND(Vx, Vy)->
@@ -318,7 +318,7 @@ let executeOp (chip:Chip8) (op : Instruction) =
     | SUB(Vx, Vy)->
         let vXVal = chip.V.[int Vx]
         let vYVal = chip.V.[int Vy]
-        let carry = if vXVal > vYVal then 1uy else 0uy
+        let carry = 1uy - ((vXVal &&& vYVal) >>> 7)
         let res = vXVal - vYVal
         let v' =  Array.copySet chip.V (int Vx) res
         let v'' =  Array.copySet v' 15 carry
@@ -416,7 +416,7 @@ let runFile debug file =
 let test() =
     printFirstScreen()
     try
-        runFile false @".\ROMs\Chip8 Picture.c8"
+        runFile false @"C:\Users\Chris\OneDrive\BitBucket\FSharp-Chip8Emu\ROMs\Sirpinski.c8"
         //dumpFile @".\ROMs\Sirpinski.c8"
     with
     | ex ->
