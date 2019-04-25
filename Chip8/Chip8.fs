@@ -5,5 +5,6 @@ open Decoder
 
 [<EntryPoint>]
 let main argv =
+    test()
     printfn "%A" argv
     0 // return an integer exit code

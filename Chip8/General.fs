@@ -5,6 +5,7 @@ open Extensions
 open BitOps
 open System.Collections
 open System.Windows.Forms
+open System.Diagnostics
 
 
 type MemoryAddress = uint16
@@ -49,6 +50,8 @@ type Chip8 =
                 0xF0uy;0x80uy;0xF0uy;0x80uy;0xF0uy; // E
                 0xF0uy;0x80uy;0xF0uy;0x80uy;0x80uy; // F
             |]
+            //|> Array.chunkBySize 5
+            //|> Array.collect Array.rev
 
         static member StackBase = 0xEA0us
 
@@ -88,17 +91,43 @@ type Chip8 =
                 | 0x0Duy -> ConsoleKey.D
                 | 0x0Euy -> ConsoleKey.E
                 | 0x0Fuy -> ConsoleKey.F
+        static member ConsoleKeyToByte = function
+                | ConsoleKey.NumPad0 -> Some 0x00uy
+                | ConsoleKey.NumPad1 -> Some 0x07uy
+                | ConsoleKey.NumPad2 -> Some 0x08uy
+                | ConsoleKey.NumPad3 -> Some 0x09uy
+                | ConsoleKey.NumPad4 -> Some 0x04uy
+                | ConsoleKey.NumPad5 -> Some 0x05uy
+                | ConsoleKey.NumPad6 -> Some 0x06uy
+                | ConsoleKey.NumPad7 -> Some 0x01uy
+                | ConsoleKey.NumPad8 -> Some 0x02uy
+                | ConsoleKey.NumPad9 -> Some 0x03uy
+                | ConsoleKey.A -> Some 0x0Auy
+                | ConsoleKey.B -> Some 0x0Buy
+                | ConsoleKey.C -> Some 0x0Cuy
+                | ConsoleKey.D -> Some 0x0Duy
+                | ConsoleKey.E -> Some 0x0Euy
+                | ConsoleKey.F -> Some 0x0Fuy
+                | _ -> None
 
-        static member Frequency = 1.00 / 120.00 //60hz, 60 cycles per second
+        static member Frequency = 1.00 / 60.00 //60hz, 60 cycles per second
 
         static member IsKeyPressed = Chip8.ByteToKey >> External.IsKeyPressed
-        static member GetKeyPress key =
+
+        static member WaitKeyPress key =
             let lookingFor = Chip8.ByteToConsoleKey key
             let rec getKey() =
                 if Console.ReadKey().Key <> lookingFor then
                     getKey()
                 else
                     ()
+            getKey()
+
+        static member GetAnyKeyPress() =
+            let rec getKey() =
+                match Console.ReadKey().Key |> Chip8.ConsoleKeyToByte with
+                | Some key -> key
+                | None -> getKey()
             getKey()
 
         /// Creates a new model of Chip8
@@ -116,9 +145,10 @@ type Chip8 =
             }
 
         member this.LoadProgram (bytes:Byte[]) =
-            { this with Ram = Array.copyBlit bytes 0 this.Ram (int Chip8.ProgramBase) bytes.Length }
+            { this with Ram = this.WriteRam (int Chip8.ProgramBase) bytes }
 
         member this.ReadRam startPos count =
+            Debug.Assert(startPos + count < 4096)
             this.Ram.[startPos..startPos+count-1]
 
         member this.WriteRam addr bytes =

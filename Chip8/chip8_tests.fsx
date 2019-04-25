@@ -73,23 +73,6 @@ module OpDecoderTests =
     ]
     |> List.iter assertTupleEqual
 
-module bitOpsTests =
-    let to8_test1 =
-        let test = 0x00FFus
-        let expected = 0xFFuy
-        let actual = to8 test
-        assertEqual expected actual
-    let to8_test2 =
-        let test = 0xCCFFus
-        let expected = 0xFFuy
-        let actual = to8 test
-        assertEqual expected actual
-    let to16_test1 =
-        let test = 0xFFuy
-        let expected = 0xFFus
-        let actual = to16 test
-        assertEqual expected actual
-
 module chipTests =
     let ramReadWrite_test =
         let chip = { Chip8.Create() with I = 0x20us }
@@ -118,9 +101,9 @@ module OpExecuteTests =
     let addvv_test =
         let chip = { Chip8.Create() with I = 0x20us }
         chip.V.[0] <- 0x20uy
-        chip.V.[1] <- 0x20uy
+        chip.V.[1] <- 0xFFuy
         let op = ADDVV(0uy, 1uy)
-        let expected = 0x20uy + 0x20uy
+        let expected = 0x20uy + 0xFFuy
         let actual = (executeOp chip op).V.[0]
         assertEqual expected actual
     let and_test =
