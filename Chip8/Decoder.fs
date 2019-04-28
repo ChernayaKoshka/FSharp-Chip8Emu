@@ -170,19 +170,8 @@ let decodeOp (s : uint16) : Instruction =
         | _ -> BADOP(s)
     | _ -> BADOP(s)
 
-let fs = new StreamWriter(File.OpenWrite("out.txt"))
-let write (str:string) =
-    fs.WriteLine(str)
-
-let inline dprintf fmt = Printf.kprintf write fmt
-
 let rand = Random()
-
 let executeOp (chip:Chip8) (op : Instruction) =
-    //Printf.kprintf write "V: %A" chip.V
-    //Printf.kprintf write "I: %A, PC: %A, SP: %A" chip.I chip.PC chip.SP
-    //Printf.kprintf write "Next: %A" op
-    dprintf "% 6d\t%A" (chip.PC-2us) op
     match op with
     | ADDIV(Vx)->
         { chip with I = chip.I + uint16 chip.V.[int Vx] }
@@ -224,7 +213,7 @@ let executeOp (chip:Chip8) (op : Instruction) =
         let written = chip.WriteRam (int chip.I) chip.V.[0..int Vx]
         { chip with Ram = written }
     | LDBCDV(Vx)->
-        let str = chip.V.[int Vx].ToString() //hackish, but I don't feel like dealing with it
+        let str = chip.V.[int Vx].ToString() //hack, but I don't feel like dealing with it
         let bcd =
             if str.Length = 3 then
                 let hundreds = Byte.Parse(string str.[0])
@@ -263,11 +252,12 @@ let executeOp (chip:Chip8) (op : Instruction) =
     | LDVV(Vx, Vy)->
         { chip with V = Array.copySet chip.V (int Vx) (chip.V.[int Vy]) }
     | OR(Vx, Vy)->
-        failwithf "%A not implemented!" op
+        let vXVal = chip.V.[int Vx]
+        let vYVal = chip.V.[int Vy]
+        let res = vXVal ||| vYVal
+        { chip with V = Array.copySet chip.V (int Vx) res }
     | RET->
-        //printfn "RET!"
         let stackAddr = int chip.SP * 2 + int Chip8.StackBase
-        //printfn "stackAddr: %A" stackAddr
         let priorAddr = combineByteArr <| chip.ReadRam stackAddr 2
         { chip with PC = priorAddr; SP = chip.SP - 1uy }
     | RND(Vx, kk)->
@@ -318,13 +308,19 @@ let executeOp (chip:Chip8) (op : Instruction) =
     | SUB(Vx, Vy)->
         let vXVal = chip.V.[int Vx]
         let vYVal = chip.V.[int Vy]
-        let carry = 1uy - ((vXVal &&& vYVal) >>> 7)
+        let carry = if vXVal > vYVal then 1uy else 0uy
         let res = vXVal - vYVal
         let v' =  Array.copySet chip.V (int Vx) res
         let v'' =  Array.copySet v' 15 carry
         { chip with V = v'' }
     | SUBN(Vx, Vy)->
-        failwithf "%A not implemented!" op
+        let vXVal = chip.V.[int Vx]
+        let vYVal = chip.V.[int Vy]
+        let carry = if vYVal > vXVal then 1uy else 0uy
+        let res = vYVal - vXVal
+        let v' =  Array.copySet chip.V (int Vx) res
+        let v'' =  Array.copySet v' 15 carry
+        { chip with V = v'' }
     | SYS(addr)->
         chip
     | XOR(Vx, Vy)->
@@ -333,12 +329,11 @@ let executeOp (chip:Chip8) (op : Instruction) =
         let res = vXVal ^^^ vYVal
         { chip with V = Array.copySet chip.V (int Vx) res }
     | BADOP(addr)->
-        failwithf "%A not implemented!" op
+        failwithf "%A" op
 
-let readFile file =
-    File.ReadAllBytes(file)
+let readFile file = File.ReadAllBytes(file)
 
-let decode (bytes : byte[]) =
+let decodeMult (bytes : byte[]) =
     bytes
     |> Array.chunkBySize 2
     |> Array.filter (fun arr -> arr.Length = 2)
@@ -346,7 +341,7 @@ let decode (bytes : byte[]) =
         combineByte bytes.[0] bytes.[1]
         |> decodeOp)
 
-let decodeFile = readFile >> decode
+let decodeFile = readFile >> decodeMult
 
 let dumpFile file =
     let decoded = decodeFile file
@@ -360,8 +355,6 @@ let runFile debug file =
     let chip = Chip8.Create().LoadProgram bytes
     let timer = External.Time.HighResTimer()
     let rec next (chip : Chip8) timeAccumulated =
-        //printf "Execute next?"
-        //Console.ReadLine() |> ignore
         let accumulated = timeAccumulated + timer.DeltaTime
         if accumulated >= Chip8.Frequency then
             let readNext  = chip.ReadRam (int chip.PC) 2
@@ -395,7 +388,7 @@ let runFile debug file =
                     cprintfDiff chip.ST nextState.ST "ST: %d" nextState.ST
                     printfn ""
 
-                    printfn "Next3: %A" (decode (nextState.ReadRam (int nextState.PC) 6))
+                    printfn "Next3: %A" (decodeMult (nextState.ReadRam (int nextState.PC) 6))
                     printfn "Ram [%d-%d]: %A" (int nextState.I) ((int nextState.I) + 9) (nextState.ReadRam (int nextState.I) 10)
                     printfn "Execute next until?"
                     let input = Console.ReadLine()
@@ -412,13 +405,3 @@ let runFile debug file =
             next chip accumulated
     next chip 0.0
     ()
-
-let test() =
-    printFirstScreen()
-    try
-        runFile false @"C:\Users\Chris\OneDrive\BitBucket\FSharp-Chip8Emu\ROMs\Sirpinski.c8"
-        //dumpFile @".\ROMs\Sirpinski.c8"
-    with
-    | ex ->
-        printfn "%A" ex
-    //dumpFile @".\ROMs\Particles.c8"
