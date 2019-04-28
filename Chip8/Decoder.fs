@@ -354,6 +354,7 @@ let runFile debug file =
     let bytes = readFile file
     let chip = Chip8.Create().LoadProgram bytes
     let timer = External.Time.HighResTimer()
+    printFirstScreen()
     let rec next (chip : Chip8) timeAccumulated =
         let accumulated = timeAccumulated + timer.DeltaTime
         if accumulated >= Chip8.Frequency then

@@ -50,8 +50,6 @@ type Chip8 =
                 0xF0uy;0x80uy;0xF0uy;0x80uy;0xF0uy; // E
                 0xF0uy;0x80uy;0xF0uy;0x80uy;0x80uy; // F
             |]
-            //|> Array.chunkBySize 5
-            //|> Array.collect Array.rev
 
         static member StackBase = 0xEA0us
 
@@ -169,20 +167,20 @@ let updateScreen (oldScreen : BitArray) (newScreen : BitArray) debugMode =
             for x in 0..63 do
                 match diff.[y * 64 + x] with
                 | Some true ->
-                    Console.SetCursorPosition(x, y)
-                    Console.Write("█")
+                    Console.SetCursorPosition(x * 2, y)
+                    Console.Write("██")
                 | Some false ->
-                    Console.SetCursorPosition(x, y)
-                    Console.Write(" ")
+                    Console.SetCursorPosition(x * 2, y)
+                    Console.Write("  ")
                 | _ -> ()
     else
         for y in 0..31 do
             for x in 0..63 do
                 match newScreen.[y * 64 + x] with
                 | true ->
-                    Console.Write("█")
+                    Console.Write("██")
                 | false ->
-                    Console.Write(" ")
+                    Console.Write("  ")
             Console.WriteLine()
 
 let drawSprite (screen:BitArray) (spriteData:BitArray) xPos yPos =
