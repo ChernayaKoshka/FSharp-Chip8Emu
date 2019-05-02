@@ -10,7 +10,6 @@
     <Compile Include="BitOps.fs" />
     <Compile Include="General.fs" />
     <Compile Include="Decoder.fs" />
-    <Compile Include="Chip8.fs" />
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
