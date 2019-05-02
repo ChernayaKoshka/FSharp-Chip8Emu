@@ -1,4 +1,4 @@
-module Chip8
+module Chip8Runner
 open Decoder
 
 [<EntryPoint>]
@@ -9,3 +9,4 @@ let main argv =
         runFile true argv.[0]
     printfn "%A" argv
     0 // return an integer exit code
+
