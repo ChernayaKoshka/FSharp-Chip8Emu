@@ -2,14 +2,12 @@ module General
 
 open System
 open Extensions
-open BitOps
 open System.Collections
 open System.Windows.Forms
 open System.Diagnostics
 
-
 type MemoryAddress = uint16
-type VRegister = byte
+type Register = byte
 
 type Chip8 =
      {
@@ -18,17 +16,17 @@ type Chip8 =
         Ram : byte[]
         //registers
         //General purpose, V16 is used for flags
-        V : VRegister[]
+        V : Register[]
         //General purpose, used for addresses
         I : MemoryAddress
         //General purpose timer
-        DT : VRegister
+        DT : Register
         //Sound timer, plays continuous tone and ticks downwards every 60 cycles
-        ST : VRegister
+        ST : Register
         //Program counter, points to current/next instruction
         PC : MemoryAddress
         //Stack pointer, points to the current stack
-        SP : VRegister
+        SP : Register
      }
      with
         static member FontSprites =
@@ -56,57 +54,59 @@ type Chip8 =
         static member ProgramBase = 0x200us
 
         static member ByteToKey = function
-                | 0x00uy -> Keys.NumPad0
-                | 0x07uy -> Keys.NumPad1
-                | 0x08uy -> Keys.NumPad2
-                | 0x09uy -> Keys.NumPad3
-                | 0x04uy -> Keys.NumPad4
-                | 0x05uy -> Keys.NumPad5
-                | 0x06uy -> Keys.NumPad6
-                | 0x01uy -> Keys.NumPad7
-                | 0x02uy -> Keys.NumPad8
-                | 0x03uy -> Keys.NumPad9
-                | 0x0Auy -> Keys.A
-                | 0x0Buy -> Keys.B
-                | 0x0Cuy -> Keys.C
-                | 0x0Duy -> Keys.D
-                | 0x0Euy -> Keys.E
-                | 0x0Fuy -> Keys.F
+            | 0x00uy -> Keys.NumPad0
+            | 0x07uy -> Keys.NumPad1
+            | 0x08uy -> Keys.NumPad2
+            | 0x09uy -> Keys.NumPad3
+            | 0x04uy -> Keys.NumPad4
+            | 0x05uy -> Keys.NumPad5
+            | 0x06uy -> Keys.NumPad6
+            | 0x01uy -> Keys.NumPad7
+            | 0x02uy -> Keys.NumPad8
+            | 0x03uy -> Keys.NumPad9
+            | 0x0Auy -> Keys.A
+            | 0x0Buy -> Keys.B
+            | 0x0Cuy -> Keys.C
+            | 0x0Duy -> Keys.D
+            | 0x0Euy -> Keys.E
+            | 0x0Fuy -> Keys.F
+
         static member ByteToConsoleKey = function
-                | 0x00uy -> ConsoleKey.NumPad0
-                | 0x07uy -> ConsoleKey.NumPad1
-                | 0x08uy -> ConsoleKey.NumPad2
-                | 0x09uy -> ConsoleKey.NumPad3
-                | 0x04uy -> ConsoleKey.NumPad4
-                | 0x05uy -> ConsoleKey.NumPad5
-                | 0x06uy -> ConsoleKey.NumPad6
-                | 0x01uy -> ConsoleKey.NumPad7
-                | 0x02uy -> ConsoleKey.NumPad8
-                | 0x03uy -> ConsoleKey.NumPad9
-                | 0x0Auy -> ConsoleKey.A
-                | 0x0Buy -> ConsoleKey.B
-                | 0x0Cuy -> ConsoleKey.C
-                | 0x0Duy -> ConsoleKey.D
-                | 0x0Euy -> ConsoleKey.E
-                | 0x0Fuy -> ConsoleKey.F
+            | 0x00uy -> ConsoleKey.NumPad0
+            | 0x07uy -> ConsoleKey.NumPad1
+            | 0x08uy -> ConsoleKey.NumPad2
+            | 0x09uy -> ConsoleKey.NumPad3
+            | 0x04uy -> ConsoleKey.NumPad4
+            | 0x05uy -> ConsoleKey.NumPad5
+            | 0x06uy -> ConsoleKey.NumPad6
+            | 0x01uy -> ConsoleKey.NumPad7
+            | 0x02uy -> ConsoleKey.NumPad8
+            | 0x03uy -> ConsoleKey.NumPad9
+            | 0x0Auy -> ConsoleKey.A
+            | 0x0Buy -> ConsoleKey.B
+            | 0x0Cuy -> ConsoleKey.C
+            | 0x0Duy -> ConsoleKey.D
+            | 0x0Euy -> ConsoleKey.E
+            | 0x0Fuy -> ConsoleKey.F
+
         static member ConsoleKeyToByte = function
-                | ConsoleKey.NumPad0 -> Some 0x00uy
-                | ConsoleKey.NumPad1 -> Some 0x07uy
-                | ConsoleKey.NumPad2 -> Some 0x08uy
-                | ConsoleKey.NumPad3 -> Some 0x09uy
-                | ConsoleKey.NumPad4 -> Some 0x04uy
-                | ConsoleKey.NumPad5 -> Some 0x05uy
-                | ConsoleKey.NumPad6 -> Some 0x06uy
-                | ConsoleKey.NumPad7 -> Some 0x01uy
-                | ConsoleKey.NumPad8 -> Some 0x02uy
-                | ConsoleKey.NumPad9 -> Some 0x03uy
-                | ConsoleKey.A -> Some 0x0Auy
-                | ConsoleKey.B -> Some 0x0Buy
-                | ConsoleKey.C -> Some 0x0Cuy
-                | ConsoleKey.D -> Some 0x0Duy
-                | ConsoleKey.E -> Some 0x0Euy
-                | ConsoleKey.F -> Some 0x0Fuy
-                | _ -> None
+            | ConsoleKey.NumPad0 -> Some 0x00uy
+            | ConsoleKey.NumPad1 -> Some 0x07uy
+            | ConsoleKey.NumPad2 -> Some 0x08uy
+            | ConsoleKey.NumPad3 -> Some 0x09uy
+            | ConsoleKey.NumPad4 -> Some 0x04uy
+            | ConsoleKey.NumPad5 -> Some 0x05uy
+            | ConsoleKey.NumPad6 -> Some 0x06uy
+            | ConsoleKey.NumPad7 -> Some 0x01uy
+            | ConsoleKey.NumPad8 -> Some 0x02uy
+            | ConsoleKey.NumPad9 -> Some 0x03uy
+            | ConsoleKey.A -> Some 0x0Auy
+            | ConsoleKey.B -> Some 0x0Buy
+            | ConsoleKey.C -> Some 0x0Cuy
+            | ConsoleKey.D -> Some 0x0Duy
+            | ConsoleKey.E -> Some 0x0Euy
+            | ConsoleKey.F -> Some 0x0Fuy
+            | _ -> None
 
         static member Frequency = 1.00 / 60.00 //60hz, 60 cycles per second
 
@@ -150,7 +150,7 @@ type Chip8 =
             this.Ram.[startPos..startPos+count-1]
 
         member this.WriteRam addr bytes =
-            Array.copyBlit (bytes) 0 this.Ram addr bytes.Length
+            Array.copyBlit bytes 0 this.Ram addr bytes.Length
 
 let printFirstScreen() =
     Console.Clear()

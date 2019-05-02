@@ -1,11 +1,5 @@
 module Decoder
 
-#if INTERACTIVE
-#load "Extensions.fs"
-#load "BitOps.fs"
-#load "General.fs"
-#endif
-
 open Extensions
 open Extensions.Printf
 open BitOps
@@ -14,49 +8,47 @@ open General
 open System
 open System.Collections
 open System.IO
-open Extensions
 
 type Instruction =
-    | ADDIV of VRegister                             // I, Vx
-    | ADDVB of VRegister * byte                      // Vx, byte
-    | ADDVV of VRegister * VRegister                 // Vx, Vy
-    | AND   of VRegister * VRegister                 // Vx, Vy
-    | CALL  of MemoryAddress                         // addr
-    | CLS                                            //
-    | DRW   of VRegister * VRegister * byte          // Vx, Vy, nibble
-    | JPA   of MemoryAddress                         // addr
-    | JP0A  of MemoryAddress                         // V0, addr
-    | LDIV  of VRegister                             // [I], Vx
-    | LDBCDV  of VRegister                             // B, Vx
-    | LDDTV of VRegister                             // DT, Vx
-    | LDFV  of VRegister                             // F, Vx
-    | LDIA  of MemoryAddress                         // I, addr
-    | LDSTV of VRegister                             // ST, Vx
-    | LDVI  of VRegister                             // Vx, [I]
-    | LDVB  of VRegister * byte                      // Vx, byte
-    | LDVDT of VRegister                             // Vx, DT
-    | LDVK  of VRegister                             // Vx, K
-    | LDVV  of VRegister * VRegister                 // Vx, Vy
-    | OR    of VRegister * VRegister                 // Vx, Vy
-    | RET                                            //
-    | RND   of VRegister * byte                      // Vx, byte
-    | SEVB  of VRegister * byte                      // Vx, byte
-    | SEVV  of VRegister * VRegister                 // Vx, Vy
-    | SHL   of VRegister                             // Vx {, Vy}
-    | SHR   of VRegister                             // Vx {, Vy}
-    | SKNP  of VRegister                             // Vx
-    | SKP   of VRegister                             // Vx
-    | SNEVB of VRegister * byte                      // Vx, byte
-    | SNEVV of VRegister * VRegister                 // Vx, Vy
-    | SUB   of VRegister * VRegister                 // Vx, Vy
-    | SUBN  of VRegister * VRegister                 // Vx, Vy
-    | SYS   of MemoryAddress                         // addr
-    | XOR   of VRegister * VRegister                 // Vx, Vy
-    | BADOP of MemoryAddress
+    | ADDIV  of Register                   // I, Vx
+    | ADDVB  of Register * byte            // Vx, byte
+    | ADDVV  of Register * Register        // Vx, Vy
+    | AND    of Register * Register        // Vx, Vy
+    | CALL   of MemoryAddress              // addr
+    | CLS                                  //
+    | DRW    of Register * Register * byte // Vx, Vy, nibble
+    | JPA    of MemoryAddress              // addr
+    | JP0A   of MemoryAddress              // V0, addr
+    | LDIV   of Register                   // [I], Vx
+    | LDBCDV of Register                   // B, Vx
+    | LDDTV  of Register                   // DT, Vx
+    | LDFV   of Register                   // F, Vx
+    | LDIA   of MemoryAddress              // I, addr
+    | LDSTV  of Register                   // ST, Vx
+    | LDVI   of Register                   // Vx, [I]
+    | LDVB   of Register * byte            // Vx, byte
+    | LDVDT  of Register                   // Vx, DT
+    | LDVK   of Register                   // Vx, K
+    | LDVV   of Register * Register        // Vx, Vy
+    | OR     of Register * Register        // Vx, Vy
+    | RET                                  //
+    | RND    of Register * byte            // Vx, byte
+    | SEVB   of Register * byte            // Vx, byte
+    | SEVV   of Register * Register        // Vx, Vy
+    | SHL    of Register                   // Vx {, Vy}
+    | SHR    of Register                   // Vx {, Vy}
+    | SKNP   of Register                   // Vx
+    | SKP    of Register                   // Vx
+    | SNEVB  of Register * byte            // Vx, byte
+    | SNEVV  of Register * Register        // Vx, Vy
+    | SUB    of Register * Register        // Vx, Vy
+    | SUBN   of Register * Register        // Vx, Vy
+    | SYS    of MemoryAddress              // addr
+    | XOR    of Register * Register        // Vx, Vy
+    | BADOP  of MemoryAddress              //
 
 let decodeOp (s : uint16) : Instruction =
-    let instruction,d1,d2,d3 = splitNibbles s
-    //printfn "Processing: %X" s
+    let instruction, d1, d2, d3 = splitNibbles s
     match instruction with
     | 0x0uy ->
         if s = 0x00E0us then
@@ -309,16 +301,16 @@ let executeOp (chip:Chip8) (op : Instruction) =
         let vXVal = chip.V.[int Vx]
         let vYVal = chip.V.[int Vy]
         let carry = if vXVal > vYVal then 1uy else 0uy
-        let res = vXVal - vYVal
-        let v' =  Array.copySet chip.V (int Vx) res
+        let result = vXVal - vYVal
+        let v' =  Array.copySet chip.V (int Vx) result
         let v'' =  Array.copySet v' 15 carry
         { chip with V = v'' }
     | SUBN(Vx, Vy)->
         let vXVal = chip.V.[int Vx]
         let vYVal = chip.V.[int Vy]
         let carry = if vYVal > vXVal then 1uy else 0uy
-        let res = vYVal - vXVal
-        let v' =  Array.copySet chip.V (int Vx) res
+        let result = vYVal - vXVal
+        let v' =  Array.copySet chip.V (int Vx) result
         let v'' =  Array.copySet v' 15 carry
         { chip with V = v'' }
     | SYS(addr)->
@@ -326,8 +318,8 @@ let executeOp (chip:Chip8) (op : Instruction) =
     | XOR(Vx, Vy)->
         let vXVal = chip.V.[int Vx]
         let vYVal = chip.V.[int Vy]
-        let res = vXVal ^^^ vYVal
-        { chip with V = Array.copySet chip.V (int Vx) res }
+        let result = vXVal ^^^ vYVal
+        { chip with V = Array.copySet chip.V (int Vx) result }
     | BADOP(addr)->
         failwithf "%A" op
 
@@ -341,20 +333,15 @@ let decodeMult (bytes : byte[]) =
         combineByte bytes.[0] bytes.[1]
         |> decodeOp)
 
-let decodeFile = readFile >> decodeMult
-
-let dumpFile file =
-    let decoded = decodeFile file
-    use writer = new StreamWriter(File.OpenWrite("dump.txt"))
-    Array.iteri (fun i op -> writer.WriteLine(sprintf "% 6d\t%A" (i*2) op)) decoded
-
 let mutable breakpointSet = false
 let mutable breakpoint = 0x200us
 let runFile debug file =
     let bytes = readFile file
     let chip = Chip8.Create().LoadProgram bytes
     let timer = External.Time.HighResTimer()
+
     printFirstScreen()
+
     let rec next (chip : Chip8) timeAccumulated =
         let accumulated = timeAccumulated + timer.DeltaTime
         if accumulated >= Chip8.Frequency then
@@ -363,6 +350,7 @@ let runFile debug file =
                 readNext
                 |> combineByteArr
                 |> decodeOp
+
             let nextState =
                 executeOp
                     {
@@ -399,6 +387,7 @@ let runFile debug file =
                         breakpoint <- num
                     | _ -> ()
 
+            /// Selectively update the screen to prevent ugly console flicker
             if nextState.Screen <> chip.Screen then
                 updateScreen chip.Screen nextState.Screen debug
             next nextState (accumulated - Chip8.Frequency)
