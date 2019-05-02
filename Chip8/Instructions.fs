@@ -162,6 +162,78 @@ let decodeOp (s : uint16) : Instruction =
         | _ -> BADOP(s)
     | _ -> BADOP(s)
 
+let encodeOp (instruction : Instruction) :  uint16 =
+    match instruction with
+    | CLS -> 0x00E0us
+    | RET -> 0x00EEus
+    | SYS nnn ->
+        0x0000us ||| nnn
+    | JPA addr ->
+        0x1000us ||| addr
+    | CALL addr ->
+        0x2000us ||| addr
+    | SEVB(vx, kk) ->
+        0x3000us ||| combineByte vx kk
+    | SNEVB(vx, kk) ->
+        0x4000us ||| combineByte vx kk
+    | SEVV(vx, vy) ->
+        0x5000us ||| (uint16 (combineNibble vx vy) <<< 4)
+    | LDVB(vx, kk) ->
+        0x6000us ||| combineByte vx kk
+    | ADDVB(vx, kk) ->
+        0x7000us ||| combineByte vx kk
+    | LDVV(vx, vy) ->
+        0x8000us ||| (uint16 (combineNibble vx vy) <<< 4)
+    | OR(vx, vy) ->
+        0x8001us ||| (uint16 (combineNibble vx vy) <<< 4)
+    | AND(vx, vy) ->
+        0x8002us ||| (uint16 (combineNibble vx vy) <<< 4)
+    | XOR(vx, vy) ->
+        0x8003us ||| (uint16 (combineNibble vx vy) <<< 4)
+    | ADDVV(vx, vy) ->
+        0x8004us ||| (uint16 (combineNibble vx vy) <<< 4)
+    | SUB(vx, vy) ->
+        0x8005us ||| (uint16 (combineNibble vx vy) <<< 4)
+    | SHR vx ->
+        0x8006us ||| (uint16 (combineNibble vx 0uy) <<< 4)
+    | SUBN(vx, vy) ->
+        0x8007us ||| (uint16 (combineNibble vx vy) <<< 4)
+    | SHL vx ->
+        0x800Eus ||| (uint16 (combineNibble vx 0uy) <<< 4)
+    | SNEVV(vx, vy) ->
+        0x9000us ||| (uint16 (combineNibble vx vy) <<< 4)
+    | LDIA addr ->
+        0xA000us ||| addr
+    | JP0A addr ->
+        0xB000us ||| addr
+    | RND(vx, kk) ->
+        0xC000us ||| combineByte vx kk
+    | DRW(vx, vy, n) ->
+        0xD000us ||| (uint16 (combineNibble vx vy) <<< 4) ||| uint16 n
+    | SKP vx ->
+        0xE09Eus ||| ((uint16 vx) <<< 8)
+    | SKNP vx ->
+        0xE0A1us ||| ((uint16 vx) <<< 8)
+    | LDVDT vx ->
+        0xF007us ||| ((uint16 vx) <<< 8)
+    | LDVK vx ->
+        0xF00Aus ||| ((uint16 vx) <<< 8)
+    | LDDTV vx ->
+        0xF015us ||| ((uint16 vx) <<< 8)
+    | LDSTV vx ->
+        0xF018us ||| ((uint16 vx) <<< 8)
+    | ADDIV vx ->
+        0xF01Eus ||| ((uint16 vx) <<< 8)
+    | LDFV vx ->
+        0xF029us ||| ((uint16 vx) <<< 8)
+    | LDBCDV vx ->
+        0xF033us ||| ((uint16 vx) <<< 8)
+    | LDIV vx ->
+        0xF055us ||| ((uint16 vx) <<< 8)
+    | LDVI vx ->
+        0xF065us ||| ((uint16 vx) <<< 8)
+    | BADOP op -> op
+
 let rand = Random()
 let executeOp (chip:Chip8) (op : Instruction) =
     match op with
