@@ -9,7 +9,7 @@
     <Compile Include="Extensions.fs" />
     <Compile Include="BitOps.fs" />
     <Compile Include="General.fs" />
-    <Compile Include="Decoder.fs" />
+    <Compile Include="Instructions.fs" />
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>

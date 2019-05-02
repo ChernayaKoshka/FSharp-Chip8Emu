@@ -2,10 +2,10 @@ open System.Collections
 #load "Extensions.fs"
 #load "BitOps.fs"
 #load "General.fs"
-#load "Decoder.fs"
+#load "Instructions.fs"
 
 open BitOps
-open Decoder
+open Instructions
 open General
 
 let inline assertTupleEqual(a, b) =

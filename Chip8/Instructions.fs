@@ -1,4 +1,4 @@
-module Decoder
+module Instructions
 
 open Extensions
 open Extensions.Printf
