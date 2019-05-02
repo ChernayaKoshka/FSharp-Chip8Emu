@@ -1,4 +1,6 @@
-module Chip8 Assembler
+module Assembler
+
+open FParsec
 
 [<EntryPoint>]
 let main argv =
