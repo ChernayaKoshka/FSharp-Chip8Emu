@@ -25,6 +25,15 @@ type UserState =
     }
 type Parser<'t> = Parser<'t, UserState>
 
+type Parsed =
+    | Opcode of Instruction
+    | NeedsLabel of (Instruction * string)
+    | Data of byte list
+
+type Processed =
+    | Opcode of Instruction
+    | Data of byte list
+
 /// Parse an unsigned number between the min and max (inclusive)
 /// Allows binary / hex / integer input
 let pUnsignedNumBetween min max : Parser<_> =
@@ -124,16 +133,13 @@ let pInstruction : Parser<_> =
             pstring "ADDVB"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pByte     |>> ADDVB
             pstring "ADDVV"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> ADDVV
             pstring "AND"    >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> AND
-            pstring "CALL"   >>. skip1Spaces >>. processLabel .>> skip1Spaces |>> CALL
             pstring "CLS"    >>% skip1Spaces >>% CLS
             pstring "DRW"    >>. skip1Spaces >>. pipe3 (pRegister .>> skip1Spaces) (pRegister .>> skip1Spaces) pByte (fun r1 r2 b -> DRW(r1, r2, b))
-            pstring "JPA"    >>. skip1Spaces >>. processLabel |>> JPA
             pstring "JP0A"   >>. skip1Spaces >>. pAddress     |>> JP0A
             pstring "LDIV"   >>. skip1Spaces >>. pRegister    |>> LDIV
             pstring "LDBCDV" >>. skip1Spaces >>. pRegister    |>> LDBCDV
             pstring "LDDTV"  >>. skip1Spaces >>. pRegister    |>> LDDTV
             pstring "LDFV"   >>. skip1Spaces >>. pRegister    |>> LDFV
-            pstring "LDIA"   >>. skip1Spaces >>. processLabel |>> LDIA
             pstring "LDSTV"  >>. skip1Spaces >>. pRegister    |>> LDSTV
             pstring "LDVI"   >>. skip1Spaces >>. pRegister    |>> LDVI
             pstring "LDVB"   >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pByte |>> LDVB
@@ -157,6 +163,17 @@ let pInstruction : Parser<_> =
             pstring "XOR"    >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> XOR
         ]
     .>> updateByteCount 2us
+    |>> Parsed.Opcode
+
+let pInstructionWithLabel : Parser<_> =
+    choice
+        [
+            pstring "CALL"   >>. skip1Spaces >>. pWord |>> (fun label -> CALL 0us, label)
+            pstring "JPA"    >>. skip1Spaces >>. pWord |>> (fun label -> JPA 0us, label)
+            pstring "LDIA"   >>. skip1Spaces >>. pWord |>> (fun label -> LDIA 0us, label)
+        ]
+    .>> updateByteCount 2us
+    |>> Parsed.NeedsLabel
 
 /// Parse a single-line comment starting with ';'
 let pComment : Parser<_> =
@@ -168,6 +185,16 @@ let whitespaceChars = seq {yield ' '; yield '\t'; yield '\v'; yield '\f'}
 
 /// Parse 1 or more whitespaces characters and returning the concatenated result
 let pWhitespace = many1 (anyOf whitespaceChars) |>> (fun chars -> String.Concat(chars))
+
+/// Parse a single-line comment starting with ';'
+let pData : Parser<_> =
+    pstring ".RAW"
+    .>> pWhitespace
+    >>. sepBy pByte pWhitespace
+    >>= (fun bytes ->
+        updateByteCount (uint16 bytes.Length)
+        >>. preturn (Parsed.Data bytes))
+
 
 /// Skips newlines / comments / whitespace
 let skipWhitespace =
@@ -182,12 +209,25 @@ let pNotInstruction =
 let pFile file =
     match runParserOnFile
             (
-                many1 (pNotInstruction >>. pInstruction .>> pNotInstruction)
+                many1 (pNotInstruction >>. (pInstruction <|> pInstructionWithLabel <|> pData) .>> pNotInstruction)
                 .>> eof
             )
             { BytesSoFar = Chip8.ProgramBase ; Labels = Map.empty }
         file Text.Encoding.UTF8 with
-    | Success (res, state, _) -> (res, state)
+    | Success (res, state, _) ->
+        let processed =
+            res
+            |> List.map (fun parsed ->
+                match parsed with
+                | NeedsLabel (op, label) ->
+                    match op with
+                    | JPA _ -> JPA (state.Labels.[label])
+                    | CALL _ -> CALL (state.Labels.[label])
+                    | LDIA _ -> LDIA (state.Labels.[label])
+                    |> Processed.Opcode
+                | Parsed.Opcode op -> Processed.Opcode op
+                | Parsed.Data data -> Processed.Data data)
+        (processed, state)
     | Failure (msg, _, _) -> failwith msg
 
 /// Parses a chip8 assembly file and writes it out to the specified file
@@ -196,7 +236,10 @@ let compile file (out : string) =
     let bytes =
         instructions
         |> Array.ofList
-        |> Array.collect (encodeOp >> splitWord)
+        |> Array.collect (fun parsed ->
+            match parsed with
+            | Opcode op -> op |> (encodeOp >> splitWord)
+            | Data bytes -> Array.ofList bytes)
     File.WriteAllBytes(out, bytes)
     state
 
