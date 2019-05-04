@@ -1,0 +1,16 @@
+;Start of program
+:START
+;Load keypress into register V0
+LDVK V0
+;Clear display
+CLS
+;Load font for # inside of register V0 into address register "I"
+LDFV V0
+;Loading X and Y coordinates into V1 and V2 respectively
+LDVB V1 10
+LDVB V2 10
+;Drawing a 5 byte sprite starting at the address in "I"
+DRW V1 V2 5
+;Loop to the start of thep rogram
+JPA START
+;End of program
