@@ -85,14 +85,17 @@ let pRegister : Parser<Register> =
 let updateByteCount count : Parser<_> =
     updateUserState (fun us -> { us with BytesSoFar = us.BytesSoFar + count })
 
+/// Adds a label to the map with the position equal to the # of bytes processed so far + the program base (0x200)
 let assignLabel label : Parser<_> =
     updateUserState (fun us -> { us with Labels = us.Labels.Add(label, us.BytesSoFar) })
 
-let pLabelText = many1Chars asciiLetter
+/// Parses 1 or more ascii characters
+let pWord = many1Chars asciiLetter
 
+/// Parses label text as an argument and attempts to look it up in the label map, returning the byte position if it succeeds.
 let processLabel : Parser<_> =
     fun stream ->
-        let reply = pLabelText stream
+        let reply = pWord stream
         if reply.Status = Ok then
             match stream.UserState.Labels |> Map.tryFind reply.Result with
             | Some pos -> Reply(pos)
@@ -100,66 +103,94 @@ let processLabel : Parser<_> =
         else
             Reply(reply.Status, reply.Error)
 
+/// Parses a label, used as a jump / call point
 let pLabel : Parser<_> =
     pchar ':'
-    >>. pLabelText
+    >>. pWord
     >>= assignLabel
     >>. skipRestOfLine true
 
+/// Parse a single space
+let space : Parser<_> = pchar ' '
 
+/// Skip one or more spaces
+let skip1Spaces : Parser<_> = many1Chars space
+
+/// Parses any valid Chip8 instruction
 let pInstruction : Parser<_> =
     choice
         [
-            pstring "ADDIV"  >>. spaces >>. pRegister    .>> spaces |>> ADDIV
-            pstring "ADDVB"  >>. spaces >>. pRegister    .>> spaces .>>. pByte     |>> ADDVB
-            pstring "ADDVV"  >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> ADDVV
-            pstring "AND"    >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> AND
-            pstring "CALL"   >>. spaces >>. processLabel .>> spaces |>> CALL
-            pstring "CLS"    >>% spaces >>% CLS
-            pstring "DRW"    >>. spaces >>. pipe3 (pRegister .>> spaces) (pRegister .>> spaces) pByte (fun r1 r2 b -> DRW(r1, r2, b))
-            pstring "JPA"    >>. spaces >>. processLabel .>> spaces |>> JPA
-            pstring "JP0A"   >>. spaces >>. pAddress     .>> spaces |>> JP0A
-            pstring "LDIV"   >>. spaces >>. pRegister    .>> spaces |>> LDIV
-            pstring "LDBCDV" >>. spaces >>. pRegister    .>> spaces |>> LDBCDV
-            pstring "LDDTV"  >>. spaces >>. pRegister    .>> spaces |>> LDDTV
-            pstring "LDFV"   >>. spaces >>. pRegister    .>> spaces |>> LDFV
-            pstring "LDIA"   >>. spaces >>. processLabel .>> spaces |>> LDIA
-            pstring "LDSTV"  >>. spaces >>. pRegister    .>> spaces |>> LDSTV
-            pstring "LDVI"   >>. spaces >>. pRegister    .>> spaces |>> LDVI
-            pstring "LDVB"   >>. spaces >>. pRegister    .>> spaces .>>. pByte |>> LDVB
-            pstring "LDVDT"  >>. spaces >>. pRegister    .>> spaces |>> LDVDT
-            pstring "LDVK"   >>. spaces >>. pRegister    .>> spaces |>> LDVK
-            pstring "LDVV"   >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> LDVV
-            pstring "OR"     >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> OR
-            pstring "RET"    >>% spaces >>% RET
-            pstring "RND"    >>. spaces >>. pRegister    .>> spaces .>>. pByte     |>> RND
-            pstring "SEVB"   >>. spaces >>. pRegister    .>> spaces .>>. pByte     |>> SEVB
-            pstring "SEVV"   >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> SEVV
-            pstring "SHL"    >>. spaces >>. pRegister    .>> spaces |>> SHL
-            pstring "SHR"    >>. spaces >>. pRegister    .>> spaces |>> SHR
-            pstring "SKNP"   >>. spaces >>. pRegister    .>> spaces |>> SKNP
-            pstring "SKP"    >>. spaces >>. pRegister    .>> spaces |>> SKP
-            pstring "SNEVB"  >>. spaces >>. pRegister    .>> spaces .>>. pByte     |>> SNEVB
-            pstring "SNEVV"  >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> SNEVV
-            pstring "SUB"    >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> SUB
-            pstring "SUBN"   >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> SUBN
-            pstring "SYS"    >>. spaces >>. pAddress     .>> spaces |>> SYS
-            pstring "XOR"    >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> XOR
+            pstring "ADDIV"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces |>> ADDIV
+            pstring "ADDVB"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pByte     |>> ADDVB
+            pstring "ADDVV"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> ADDVV
+            pstring "AND"    >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> AND
+            pstring "CALL"   >>. skip1Spaces >>. processLabel .>> skip1Spaces |>> CALL
+            pstring "CLS"    >>% skip1Spaces >>% CLS
+            pstring "DRW"    >>. skip1Spaces >>. pipe3 (pRegister .>> skip1Spaces) (pRegister .>> skip1Spaces) pByte (fun r1 r2 b -> DRW(r1, r2, b))
+            pstring "JPA"    >>. skip1Spaces >>. processLabel |>> JPA
+            pstring "JP0A"   >>. skip1Spaces >>. pAddress     |>> JP0A
+            pstring "LDIV"   >>. skip1Spaces >>. pRegister    |>> LDIV
+            pstring "LDBCDV" >>. skip1Spaces >>. pRegister    |>> LDBCDV
+            pstring "LDDTV"  >>. skip1Spaces >>. pRegister    |>> LDDTV
+            pstring "LDFV"   >>. skip1Spaces >>. pRegister    |>> LDFV
+            pstring "LDIA"   >>. skip1Spaces >>. processLabel |>> LDIA
+            pstring "LDSTV"  >>. skip1Spaces >>. pRegister    |>> LDSTV
+            pstring "LDVI"   >>. skip1Spaces >>. pRegister    |>> LDVI
+            pstring "LDVB"   >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pByte |>> LDVB
+            pstring "LDVDT"  >>. skip1Spaces >>. pRegister    |>> LDVDT
+            pstring "LDVK"   >>. skip1Spaces >>. pRegister    |>> LDVK
+            pstring "LDVV"   >>. skip1Spaces >>. pRegister    .>>. pRegister |>> LDVV
+            pstring "OR"     >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> OR
+            pstring "RET"    >>% skip1Spaces >>% RET
+            pstring "RND"    >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pByte     |>> RND
+            pstring "SEVB"   >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pByte     |>> SEVB
+            pstring "SEVV"   >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> SEVV
+            pstring "SHL"    >>. skip1Spaces >>. pRegister    |>> SHL
+            pstring "SHR"    >>. skip1Spaces >>. pRegister    |>> SHR
+            pstring "SKNP"   >>. skip1Spaces >>. pRegister    |>> SKNP
+            pstring "SKP"    >>. skip1Spaces >>. pRegister    |>> SKP
+            pstring "SNEVB"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pByte     |>> SNEVB
+            pstring "SNEVV"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> SNEVV
+            pstring "SUB"    >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> SUB
+            pstring "SUBN"   >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> SUBN
+            pstring "SYS"    >>. skip1Spaces >>. pAddress     |>> SYS
+            pstring "XOR"    >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> XOR
         ]
     .>> updateByteCount 2us
 
-let pNext =
-    optional pLabel
-    >>. pInstruction
+/// Parse a single-line comment starting with ';'
+let pComment : Parser<_> =
+    pchar ';'
+    >>. restOfLine false
 
+/// An array of whitespace characters NOT included newlines
+let whitespaceChars = seq {yield ' '; yield '\t'; yield '\v'; yield '\f'}
+
+/// Parse 1 or more whitespaces characters and returning the concatenated result
+let pWhitespace = many1 (anyOf whitespaceChars) |>> (fun chars -> String.Concat(chars))
+
+/// Skips newlines / comments / whitespace
+let skipWhitespace =
+    (newline |>> string) <|> pComment <|> pWhitespace
+    |>> ignore
+
+/// Parse 1 or more skipWhitespace or Label
+let pNotInstruction =
+    many (skipWhitespace <|> pLabel)
+
+/// Parses a chip8 assembly file and returns the instruction list / user state
 let pFile file =
     match runParserOnFile
-            (many1 (pNext .>> (spaces <|> skipNewline <|> eof)))
+            (
+                many1 (pNotInstruction >>. pInstruction .>> pNotInstruction)
+                .>> eof
+            )
             { BytesSoFar = Chip8.ProgramBase ; Labels = Map.empty }
         file Text.Encoding.UTF8 with
     | Success (res, state, _) -> (res, state)
     | Failure (msg, _, _) -> failwith msg
 
+/// Parses a chip8 assembly file and writes it out to the specified file
 let compile file (out : string) =
     let instructions, state =  pFile file
     let bytes =
@@ -173,5 +204,14 @@ let compile file (out : string) =
 [<EntryPoint>]
 let main argv =
     printfn "%A" argv
+    if argv.Length = 1 then
+        compile argv.[0] (Path.GetFileNameWithoutExtension(argv.[0]) + ".c8")
+        |> printfn "%A"
+    else if argv.Length = 2 then
+        compile argv.[0] argv.[1]
+        |> printfn "%A"
+    else
+        printf @"Usage: .\program.exe [input path] (output path: optional)"
+
     0 // return an integer exit code
 #endif
