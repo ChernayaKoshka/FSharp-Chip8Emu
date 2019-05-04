@@ -16,8 +16,13 @@ open General
 open BitOps
 open FParsec
 open System
+open System.IO
 
-type UserState = unit
+type UserState =
+    {
+        BytesSoFar : uint16
+        Labels : Map<string, uint16>
+    }
 type Parser<'t> = Parser<'t, UserState>
 
 /// Parse an unsigned number between the min and max (inclusive)
@@ -54,7 +59,7 @@ let pUnsignedNumBetween min max : Parser<_> =
             Reply(reply.Status, reply.Error)
 
 /// Parse a chip8 address (0x0-0x0FFF)
-let pAddr : Parser<MemoryAddress> =
+let pAddress : Parser<MemoryAddress> =
     fun stream ->
         let reply = pUnsignedNumBetween 0x0u 0x0FFFu stream
         if reply.Status = Ok then
@@ -77,58 +82,92 @@ let pNibble : Parser<_> =
 let pRegister : Parser<Register> =
     pstring "V" >>. pNibble
 
+let updateByteCount count : Parser<_> =
+    updateUserState (fun us -> { us with BytesSoFar = us.BytesSoFar + count })
+
+let assignLabel label : Parser<_> =
+    updateUserState (fun us -> { us with Labels = us.Labels.Add(label, us.BytesSoFar) })
+
+let pLabelText = many1Chars asciiLetter
+
+let processLabel : Parser<_> =
+    fun stream ->
+        let reply = pLabelText stream
+        if reply.Status = Ok then
+            match stream.UserState.Labels |> Map.tryFind reply.Result with
+            | Some pos -> Reply(pos)
+            | None -> Reply(FatalError, messageError (sprintf "Label '%s' has not been defined prior to this point." reply.Result))
+        else
+            Reply(reply.Status, reply.Error)
+
+let pLabel : Parser<_> =
+    pchar ':'
+    >>. pLabelText
+    >>= assignLabel
+    >>. skipRestOfLine true
+
+
 let pInstruction : Parser<_> =
     choice
         [
-            pstring "ADDIV"  >>. spaces >>. pRegister .>> spaces |>> ADDIV
-            pstring "ADDVB"  >>. spaces >>. pRegister .>> spaces .>>. pByte     |>> ADDVB
-            pstring "ADDVV"  >>. spaces >>. pRegister .>> spaces .>>. pRegister |>> ADDVV
-            pstring "AND"    >>. spaces >>. pRegister .>> spaces .>>. pRegister |>> AND
-            pstring "CALL"   >>. spaces >>. pAddr     .>> spaces |>> CALL
+            pstring "ADDIV"  >>. spaces >>. pRegister    .>> spaces |>> ADDIV
+            pstring "ADDVB"  >>. spaces >>. pRegister    .>> spaces .>>. pByte     |>> ADDVB
+            pstring "ADDVV"  >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> ADDVV
+            pstring "AND"    >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> AND
+            pstring "CALL"   >>. spaces >>. processLabel .>> spaces |>> CALL
             pstring "CLS"    >>% spaces >>% CLS
             pstring "DRW"    >>. spaces >>. pipe3 (pRegister .>> spaces) (pRegister .>> spaces) pByte (fun r1 r2 b -> DRW(r1, r2, b))
-            pstring "JPA"    >>. spaces >>. pAddr     .>> spaces |>> JPA
-            pstring "JP0A"   >>. spaces >>. pAddr     .>> spaces |>> JP0A
-            pstring "LDIV"   >>. spaces >>. pRegister .>> spaces |>> LDIV
-            pstring "LDBCDV" >>. spaces >>. pRegister .>> spaces |>> LDBCDV
-            pstring "LDDTV"  >>. spaces >>. pRegister .>> spaces |>> LDDTV
-            pstring "LDFV"   >>. spaces >>. pRegister .>> spaces |>> LDFV
-            pstring "LDIA"   >>. spaces >>. pAddr     .>> spaces |>> LDIA
-            pstring "LDSTV"  >>. spaces >>. pRegister .>> spaces |>> LDSTV
-            pstring "LDVI"   >>. spaces >>. pRegister .>> spaces |>> LDVI
-            pstring "LDVB"   >>. spaces >>. pRegister .>> spaces .>>. pByte |>> LDVB
-            pstring "LDVDT"  >>. spaces >>. pRegister .>> spaces |>> LDVDT
-            pstring "LDVK"   >>. spaces >>. pRegister .>> spaces |>> LDVK
-            pstring "LDVV"   >>. spaces >>. pRegister .>> spaces .>>. pRegister |>> LDVV
-            pstring "OR"     >>. spaces >>. pRegister .>> spaces .>>. pRegister |>> OR
+            pstring "JPA"    >>. spaces >>. processLabel .>> spaces |>> JPA
+            pstring "JP0A"   >>. spaces >>. pAddress     .>> spaces |>> JP0A
+            pstring "LDIV"   >>. spaces >>. pRegister    .>> spaces |>> LDIV
+            pstring "LDBCDV" >>. spaces >>. pRegister    .>> spaces |>> LDBCDV
+            pstring "LDDTV"  >>. spaces >>. pRegister    .>> spaces |>> LDDTV
+            pstring "LDFV"   >>. spaces >>. pRegister    .>> spaces |>> LDFV
+            pstring "LDIA"   >>. spaces >>. processLabel .>> spaces |>> LDIA
+            pstring "LDSTV"  >>. spaces >>. pRegister    .>> spaces |>> LDSTV
+            pstring "LDVI"   >>. spaces >>. pRegister    .>> spaces |>> LDVI
+            pstring "LDVB"   >>. spaces >>. pRegister    .>> spaces .>>. pByte |>> LDVB
+            pstring "LDVDT"  >>. spaces >>. pRegister    .>> spaces |>> LDVDT
+            pstring "LDVK"   >>. spaces >>. pRegister    .>> spaces |>> LDVK
+            pstring "LDVV"   >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> LDVV
+            pstring "OR"     >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> OR
             pstring "RET"    >>% spaces >>% RET
-            pstring "RND"    >>. spaces >>. pRegister .>> spaces .>>. pByte     |>> RND
-            pstring "SEVB"   >>. spaces >>. pRegister .>> spaces .>>. pByte     |>> SEVB
-            pstring "SEVV"   >>. spaces >>. pRegister .>> spaces .>>. pRegister |>> SEVV
-            pstring "SHL"    >>. spaces >>. pRegister .>> spaces |>> SHL
-            pstring "SHR"    >>. spaces >>. pRegister .>> spaces |>> SHR
-            pstring "SKNP"   >>. spaces >>. pRegister .>> spaces |>> SKNP
-            pstring "SKP"    >>. spaces >>. pRegister .>> spaces |>> SKP
-            pstring "SNEVB"  >>. spaces >>. pRegister .>> spaces .>>. pByte     |>> SNEVB
-            pstring "SNEVV"  >>. spaces >>. pRegister .>> spaces .>>. pRegister |>> SNEVV
-            pstring "SUB"    >>. spaces >>. pRegister .>> spaces .>>. pRegister |>> SUB
-            pstring "SUBN"   >>. spaces >>. pRegister .>> spaces .>>. pRegister |>> SUBN
-            pstring "SYS"    >>. spaces >>. pAddr     .>> spaces |>> SYS
-            pstring "XOR"    >>. spaces >>. pRegister .>> spaces .>>. pRegister |>> XOR
+            pstring "RND"    >>. spaces >>. pRegister    .>> spaces .>>. pByte     |>> RND
+            pstring "SEVB"   >>. spaces >>. pRegister    .>> spaces .>>. pByte     |>> SEVB
+            pstring "SEVV"   >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> SEVV
+            pstring "SHL"    >>. spaces >>. pRegister    .>> spaces |>> SHL
+            pstring "SHR"    >>. spaces >>. pRegister    .>> spaces |>> SHR
+            pstring "SKNP"   >>. spaces >>. pRegister    .>> spaces |>> SKNP
+            pstring "SKP"    >>. spaces >>. pRegister    .>> spaces |>> SKP
+            pstring "SNEVB"  >>. spaces >>. pRegister    .>> spaces .>>. pByte     |>> SNEVB
+            pstring "SNEVV"  >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> SNEVV
+            pstring "SUB"    >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> SUB
+            pstring "SUBN"   >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> SUBN
+            pstring "SYS"    >>. spaces >>. pAddress     .>> spaces |>> SYS
+            pstring "XOR"    >>. spaces >>. pRegister    .>> spaces .>>. pRegister |>> XOR
         ]
+    .>> updateByteCount 2us
 
-let pProgram file =
-    match runParserOnFile (many1 (pInstruction .>> (spaces <|> skipNewline <|> eof))) () file Text.Encoding.UTF8 with
-    | Success (res, _, _) -> res
+let pNext =
+    optional pLabel
+    >>. pInstruction
+
+let pFile file =
+    match runParserOnFile
+            (many1 (pNext .>> (spaces <|> skipNewline <|> eof)))
+            { BytesSoFar = Chip8.ProgramBase ; Labels = Map.empty }
+        file Text.Encoding.UTF8 with
+    | Success (res, state, _) -> (res, state)
     | Failure (msg, _, _) -> failwith msg
 
-open System.IO
 let compile file (out : string) =
+    let instructions, state =  pFile file
     let bytes =
-        pProgram file
+        instructions
         |> Array.ofList
         |> Array.collect (encodeOp >> splitWord)
     File.WriteAllBytes(out, bytes)
+    state
 
 #if !INTERACTIVE
 [<EntryPoint>]
