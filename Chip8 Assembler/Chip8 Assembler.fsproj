@@ -4,6 +4,11 @@
     <TargetFramework>net461</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Chip8\Chip8.fsproj">
+      <Name>Chip8.fsproj</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="Chip8 Assembler.fs" />
     <None Include="App.config" />
   </ItemGroup>
