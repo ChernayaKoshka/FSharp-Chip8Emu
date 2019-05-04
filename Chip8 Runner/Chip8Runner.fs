@@ -1,5 +1,5 @@
 module Chip8Runner
-open Decoder
+open Instructions
 
 [<EntryPoint>]
 let main argv =
