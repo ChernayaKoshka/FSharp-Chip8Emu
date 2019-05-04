@@ -55,15 +55,15 @@ type Chip8 =
 
         static member ByteToKey = function
             | 0x00uy -> Keys.NumPad0
-            | 0x07uy -> Keys.NumPad1
-            | 0x08uy -> Keys.NumPad2
-            | 0x09uy -> Keys.NumPad3
+            | 0x01uy -> Keys.NumPad1
+            | 0x02uy -> Keys.NumPad2
+            | 0x03uy -> Keys.NumPad3
             | 0x04uy -> Keys.NumPad4
             | 0x05uy -> Keys.NumPad5
             | 0x06uy -> Keys.NumPad6
-            | 0x01uy -> Keys.NumPad7
-            | 0x02uy -> Keys.NumPad8
-            | 0x03uy -> Keys.NumPad9
+            | 0x07uy -> Keys.NumPad7
+            | 0x08uy -> Keys.NumPad8
+            | 0x09uy -> Keys.NumPad9
             | 0x0Auy -> Keys.A
             | 0x0Buy -> Keys.B
             | 0x0Cuy -> Keys.C
@@ -73,15 +73,15 @@ type Chip8 =
 
         static member ByteToConsoleKey = function
             | 0x00uy -> ConsoleKey.NumPad0
-            | 0x07uy -> ConsoleKey.NumPad1
-            | 0x08uy -> ConsoleKey.NumPad2
-            | 0x09uy -> ConsoleKey.NumPad3
+            | 0x01uy -> ConsoleKey.NumPad1
+            | 0x02uy -> ConsoleKey.NumPad2
+            | 0x03uy -> ConsoleKey.NumPad3
             | 0x04uy -> ConsoleKey.NumPad4
             | 0x05uy -> ConsoleKey.NumPad5
             | 0x06uy -> ConsoleKey.NumPad6
-            | 0x01uy -> ConsoleKey.NumPad7
-            | 0x02uy -> ConsoleKey.NumPad8
-            | 0x03uy -> ConsoleKey.NumPad9
+            | 0x07uy -> ConsoleKey.NumPad7
+            | 0x08uy -> ConsoleKey.NumPad8
+            | 0x09uy -> ConsoleKey.NumPad9
             | 0x0Auy -> ConsoleKey.A
             | 0x0Buy -> ConsoleKey.B
             | 0x0Cuy -> ConsoleKey.C
@@ -91,15 +91,15 @@ type Chip8 =
 
         static member ConsoleKeyToByte = function
             | ConsoleKey.NumPad0 -> Some 0x00uy
-            | ConsoleKey.NumPad1 -> Some 0x07uy
-            | ConsoleKey.NumPad2 -> Some 0x08uy
-            | ConsoleKey.NumPad3 -> Some 0x09uy
+            | ConsoleKey.NumPad1 -> Some 0x01uy
+            | ConsoleKey.NumPad2 -> Some 0x02uy
+            | ConsoleKey.NumPad3 -> Some 0x03uy
             | ConsoleKey.NumPad4 -> Some 0x04uy
             | ConsoleKey.NumPad5 -> Some 0x05uy
             | ConsoleKey.NumPad6 -> Some 0x06uy
-            | ConsoleKey.NumPad7 -> Some 0x01uy
-            | ConsoleKey.NumPad8 -> Some 0x02uy
-            | ConsoleKey.NumPad9 -> Some 0x03uy
+            | ConsoleKey.NumPad7 -> Some 0x07uy
+            | ConsoleKey.NumPad8 -> Some 0x08uy
+            | ConsoleKey.NumPad9 -> Some 0x09uy
             | ConsoleKey.A -> Some 0x0Auy
             | ConsoleKey.B -> Some 0x0Buy
             | ConsoleKey.C -> Some 0x0Cuy
