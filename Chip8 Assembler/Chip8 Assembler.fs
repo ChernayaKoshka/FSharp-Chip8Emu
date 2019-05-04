@@ -3,8 +3,8 @@ module Assembler
 #endif
 
 #if INTERACTIVE
-#r @"C:\Users\Chris\OneDrive\BitBucket\FSharp-Chip8Emu\packages\FParsec\lib\net40-client\FParsecCS.dll"
-#r @"C:\Users\Chris\OneDrive\BitBucket\FSharp-Chip8Emu\packages\FParsec\lib\net40-client\FParsec.dll"
+#r @"..\packages\FParsec\lib\net40-client\FParsecCS.dll"
+#r @"..\packages\FParsec\lib\net40-client\FParsec.dll"
 #load @"..\Chip8\Extensions.fs"
 #load @"..\Chip8\BitOps.fs"
 #load @"..\Chip8\General.fs"
