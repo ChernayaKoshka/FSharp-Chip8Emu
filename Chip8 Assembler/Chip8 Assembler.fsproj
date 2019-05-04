@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net461</TargetFramework>
+    <TargetName>chasm</TargetName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Chip8\Chip8.fsproj">
