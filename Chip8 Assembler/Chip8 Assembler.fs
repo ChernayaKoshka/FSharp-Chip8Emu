@@ -129,7 +129,7 @@ let skip1Spaces : Parser<_> = many1Chars space
 let pInstruction : Parser<_> =
     choice
         [
-            pstring "ADDIV"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces |>> ADDIV
+            pstring "ADDIV"  >>. skip1Spaces >>. pRegister    |>> ADDIV
             pstring "ADDVB"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pByte     |>> ADDVB
             pstring "ADDVV"  >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> ADDVV
             pstring "AND"    >>. skip1Spaces >>. pRegister    .>> skip1Spaces .>>. pRegister |>> AND
