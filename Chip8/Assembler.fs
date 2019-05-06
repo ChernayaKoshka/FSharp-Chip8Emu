@@ -206,7 +206,7 @@ let skipWhitespace =
 let pNotInstruction =
     many (skipWhitespace <|> pLabel)
 
-/// Parses a chip8 assembly file and returns the instruction list / user state
+/// Parses a chip8 assembly file and returns the instruction list
 let pAssembly contents =
     match runParserOnString
             (
@@ -232,6 +232,7 @@ let pAssembly contents =
         processed
     | Failure (msg, _, _) -> failwith msg
 
+// Converts instructions / data to bytes and returns a byte array
 let assemble instructions =
     instructions
     |> Array.ofList
